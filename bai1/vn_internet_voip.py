@@ -1,6 +1,6 @@
 import math
 
-# cái này cũng giải bài 1, nhưng với chỉ số riêng của VN trả lời câu hỏi Internet/VOIP
+# cái này cũng giải bài 1, nhưng với chỉ số riêng của VN trả lời câu hỏi Internet/VOIP, truyền tải dữ liệu ảnh radar
 
 def calculate_leo_constellation_vietnam(h, min_elevation, use_case_name):
     """
