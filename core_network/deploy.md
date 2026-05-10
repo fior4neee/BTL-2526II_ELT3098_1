@@ -1,53 +1,60 @@
+Dưới đây là bản dịch toàn bộ nội dung file `DEPLOY.md` sang tiếng Anh theo đúng cấu trúc và các bản cập nhật mới nhất của bạn:
 
+```markdown
 ---
 
 # 🛰️ VNU-LEO Core Network - Deployment Guide
-Tài liệu này hướng dẫn chi tiết các bước để cài đặt và vận hành module **Core Network** của dự án VNU-LEO trên máy tính cục bộ.
-## 📋 Yêu cầu hệ thống (Prerequisites)
-### 1. Cài đặt ngôn ngữ lập trình Go
-* **Link tải:** [https://go.dev/dl/](https://go.dev/dl/)
-* Sau khi cài đặt xong, hãy mở Terminal (hoặc CMD) và gõ lệnh sau để kiểm tra:
-```bash
-go version
+
+This document provides detailed instructions to set up and run the **Core Network** module of the VNU-LEO project on your local machine.
+
+## 📋 Prerequisites
+
+### 1. Install Go Programming Language
+- **Download Link:** [https://go.dev/dl/](https://go.dev/dl/)
+- After the installation is complete, open your Terminal (or Command Prompt) and type the following command to verify:
+  ```bash
+  go version
 
 ```
 
 ---
 
-## 🛠️ Các bước thiết lập dự án (Setup steps)
-Giả sử bạn đã tải mã nguồn về và đang ở trong thư mục dự án.
-### Bước 1: Khởi tạo Go Module
-Go Module là trình quản lý thư viện của Go. Bạn cần khởi tạo nó trước khi cài đặt bất kỳ thư viện nào.
-Mở Terminal tại thư mục chứa các file (`main.go`, `models.go`, ...):
+## 🛠️ Setup Steps
+### Step 1: Initialize Go Module
+Go Module is the dependency manager for Go. You need to initialize it before installing any libraries.
+Open your Terminal, **navigate to the `core_network` directory**, and run:
 
 ```bash
+cd core_network
 go mod init vnu_leo_core
 
 ```
 
-### Bước 2: Cài đặt thư viện Gin Web Framework
+### Step 2: Install Gin Web Framework
 
-Hệ thống sử dụng Framework **Gin** để xây dựng REST API. Hãy tải nó về bằng lệnh:
+The system uses the **Gin** framework to build the REST API. Download it by running:
 
 ```bash
-go get -u github.com/gin-gonic/gin
+go get -u [github.com/gin-gonic/gin](https://github.com/gin-gonic/gin)
 
 ```
 
-*Lưu ý: Lệnh này sẽ tự động tạo file `go.sum` và cập nhật file `go.mod` của bạn.*
+*Note: This command will automatically generate a `go.sum` file and update your `go.mod` file.*
+
+### Step 3: Prepare Directory Structure and Data
 
 ---
 
-## 🚀 Khởi chạy hệ thống (Running)
+## 🚀 Running the System
 
-Tại thư mục gốc của dự án, chạy lệnh sau:
+Ensure you are still inside the `core_network` directory, then execute the following command:
 
 ```bash
 go run .
 
 ```
 
-Nếu thành công, hệ thống sẽ in ra các dòng log tiếng Anh như sau:
+If successful, the system will output the following logs:
 
 ```text
 --- VNU-LEO Core Network Booting ---
@@ -59,22 +66,22 @@ VNU-LEO Core API listening on :8080
 
 ---
 
-## 🧪 Kiểm tra trạng thái (Testing)
+## 🧪 Testing
 
-Sau khi Server đã chạy (đang lắng nghe ở port 8080), bạn có thể dùng trình duyệt web hoặc Postman để kiểm tra:
+Once the server is up and running (listening on port 8080), you can use a web browser or Postman to test the endpoints:
 
-1. **Kiểm tra sức khỏe (Health Check):**
+1. **Health Check:**
 * **URL:** `http://localhost:8080/api/v1/health`
-* **Kết quả mong muốn:** `{"status":"ok"}`
+* **Expected Result:** `{"status":"ok"}`
 
 
-2. **Lấy danh sách trạm (Gateways):**
+2. **Get Gateways List:**
 * **URL:** `http://localhost:8080/api/v1/gateways`
-* **Mục đích:** Xác nhận dữ liệu từ file JSON đã được nạp thành công.
+* **Purpose:** Verify that the JSON data was loaded successfully.
 
 
-3. **Kết nối thử một Router (POST Request):**
-* Sử dụng Postman gửi một request POST đến `http://localhost:8080/api/v1/router/connect`
+3. **Simulate Router Connection (POST Request):**
+* Use Postman to send a POST request to `http://localhost:8080/api/v1/router/connect`
 * **Body (JSON):**
 ```json
 {
@@ -86,5 +93,17 @@ Sau khi Server đã chạy (đang lắng nghe ở port 8080), bạn có thể d�
 ```
 
 
+
+
+
+---
+
+## 🐞 Troubleshooting
+
+* **Error `StateHold is not a type`:** Ensure you have updated the `models.go` file correctly (change the type to `SessionState`).
+* **Error `cannot find module...`:** Run the command `go mod tidy` so Go can automatically download and update any missing dependencies.
+* **Error `gateways.json: no such file or directory`:** Double-check that you have created the `data` folder and the `gateways.json` file in the correct location (inside the `core_network` folder).
+
+---
 
 *VNU-LEO Project - 2026*
