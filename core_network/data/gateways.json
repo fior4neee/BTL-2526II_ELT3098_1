@@ -1,0 +1,29 @@
+[
+  {
+    "id": "GW-HAN-01",
+    "name": "Hanoi Gateway",
+    "location": { "lat": 21.0285, "lon": 105.8542, "alt": 0.015 },
+    "max_sessions": 50000,
+    "min_elevation_deg": 25.0,
+    "antenna": { "gain_dbi": 42.5, "beam_width_deg": 1.5 },
+    "status": "alive"
+  },
+  {
+    "id": "GW-DAN-01",
+    "name": "Danang Gateway",
+    "location": { "lat": 16.0471, "lon": 108.2062, "alt": 0.005 },
+    "max_sessions": 40000,
+    "min_elevation_deg": 20.0,
+    "antenna": { "gain_dbi": 40.0, "beam_width_deg": 1.8 },
+    "status": "alive"
+  },
+  {
+    "id": "GW-HCM-01",
+    "name": "HCMC Gateway",
+    "location": { "lat": 10.7626, "lon": 106.6601, "alt": 0.008 },
+    "max_sessions": 75000,
+    "min_elevation_deg": 25.0,
+    "antenna": { "gain_dbi": 45.0, "beam_width_deg": 1.2 },
+    "status": "alive"
+  }
+]
