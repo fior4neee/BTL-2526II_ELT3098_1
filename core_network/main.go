@@ -40,7 +40,7 @@ func main() {
 		gwCopy := g // Avoid pointer issues in range
 		gatewayPool.AddGateway(&gwCopy)
 	}
-	log.Printf("Successfully loaded %d gateways from local storage.\n", len(gateways))
+	log.Printf("Successfully loaded %d gateways.\n", len(gateways))
 
 	// 3. Initialize Handover Manager
 	handoverManager := NewHandoverManager(gatewayPool)
