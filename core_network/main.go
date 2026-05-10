@@ -5,55 +5,75 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
-	"os"
 
 	"github.com/gin-gonic/gin"
 )
 
-// loadGatewaysFromFile reads and parses the JSON gateway data
-func loadGatewaysFromFile(path string) ([]Gateway, error) {
-	jsonFile, err := os.Open(path)
-	if err != nil {
-		return nil, err
-	}
-	defer jsonFile.Close()
-
-	byteValue, _ := ioutil.ReadAll(jsonFile)
-	var gateways []Gateway
-	err = json.Unmarshal(byteValue, &gateways)
-	return gateways, err
-}
-
 func main() {
-	log.Println("--- VNU-LEO Core Network Booting ---")
+	log.Println("--- Starting VNU-LEO Core Network ---")
 
-	// 1. Initialize Gateway Pool
-	gatewayPool := NewGatewayPool()
-
-	// 2. Load data from folder /data/gateways.json
-	gateways, err := loadGatewaysFromFile("data/gateways.json")
+	// 1. Load Deployment Settings (The Entry Point)
+	deployPath := "data/deploy_setting.json"
+	deployRaw, err := ioutil.ReadFile(deployPath)
 	if err != nil {
-		log.Fatalf("Critical: Could not load gateway data: %v\n", err)
+		log.Fatalf("Critical: Could not read deploy config at %s: %v\n", deployPath, err)
+	}
+
+	var deployConfig DeployConfig
+	if err := json.Unmarshal(deployRaw, &deployConfig); err != nil {
+		log.Fatalf("Critical: Failed to parse deploy JSON: %v\n", err)
+	}
+
+	// 2. Load System Settings (Physics & Logic params)
+	// using the path provided in deployConfig
+	log.Printf("Loading system settings from: %s\n", deployConfig.SystemSettingsPath)
+	systemRaw, err := ioutil.ReadFile(deployConfig.SystemSettingsPath)
+	if err != nil {
+		log.Fatalf("Critical: Could not read system settings: %v\n", err)
+	}
+
+	var systemSettings SystemSettings
+	if err := json.Unmarshal(systemRaw, &systemSettings); err != nil {
+		log.Fatalf("Critical: Failed to parse system settings JSON: %v\n", err)
+	}
+
+	// 3. Initialize Gateway Pool with System Settings
+	gatewayPool := NewGatewayPool(systemSettings)
+
+	// 4. Load Gateway Data from the path specified in deployConfig
+	log.Printf("Loading gateway data from: %s\n", deployConfig.GatewayDataPath)
+	gatewayDataRaw, err := ioutil.ReadFile(deployConfig.GatewayDataPath)
+	if err != nil {
+		log.Fatalf("Critical: Could not read gateway data: %v\n", err)
+	}
+
+	var gateways []Gateway
+	if err := json.Unmarshal(gatewayDataRaw, &gateways); err != nil {
+		log.Fatalf("Critical: Failed to parse gateway JSON: %v\n", err)
 	}
 
 	for _, g := range gateways {
-		gwCopy := g // Avoid pointer issues in range
-		gatewayPool.AddGateway(&gwCopy)
+		gCopy := g
+		gatewayPool.AddGateway(&gCopy)
 	}
-	log.Printf("Successfully loaded %d gateways.\n", len(gateways))
+	log.Printf("Successfully initialized %d gateways.\n", len(gateways))
 
-	// 3. Initialize Handover Manager
-	handoverManager := NewHandoverManager(gatewayPool)
+	// 5. Initialize Handover Manager
+	handoverManager := NewHandoverManager(gatewayPool, systemSettings)
 	log.Println("Handover Manager is online.")
 
-	// 4. REST API Setup
+	// 6. REST API Setup
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.Default()
 
 	v1 := router.Group("/api/v1")
 	{
 		v1.GET("/health", func(c *gin.Context) {
-			c.JSON(http.StatusOK, gin.H{"status": "ok"})
+			c.JSON(http.StatusOK, gin.H{
+				"status":    "ok",
+				"satellite": systemSettings.DefaultSatelliteID,
+				"port":      deployConfig.AppPort,
+			})
 		})
 
 		v1.GET("/gateways", func(c *gin.Context) {
@@ -66,16 +86,13 @@ func main() {
 
 		v1.POST("/router/connect", func(c *gin.Context) {
 			var req struct {
-				MAC string  `json:"router_mac" binding:"required"`
-				Lat float64 `json:"lat"`
-				Lon float64 `json:"lon"`
+				MAC string `json:"router_mac" binding:"required"`
 			}
 			if err := c.ShouldBindJSON(&req); err != nil {
 				c.JSON(http.StatusBadRequest, gin.H{"error": "invalid payload"})
 				return
 			}
-			loc := Location{Latitude: req.Lat, Longitude: req.Lon}
-			sess, err := handoverManager.HandleRouterConnect(req.MAC, loc)
+			sess, err := handoverManager.HandleRouterConnect(req.MAC)
 			if err != nil {
 				c.JSON(http.StatusServiceUnavailable, gin.H{"error": err.Error()})
 				return
@@ -84,7 +101,10 @@ func main() {
 		})
 	}
 
-	port := ":8080"
-	log.Printf("VNU-LEO Core API listening on %s\n", port)
-	router.Run(port)
+	// 7. Start the Server using the port from deployConfig
+	fullPort := ":" + deployConfig.AppPort
+	log.Printf("VNU-LEO Core API listening on %s\n", fullPort)
+	if err := router.Run(fullPort); err != nil {
+		log.Fatalf("Critical Error: Failed to start server: %v\n", err)
+	}
 }

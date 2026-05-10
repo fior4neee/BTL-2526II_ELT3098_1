@@ -2,78 +2,73 @@ package main
 
 import "time"
 
-// Physical constants and system settings
-const (
-	EarthRadiusKm       = 6371.0 // Mean radius of the Earth in km
-	ElevationHysteresis = 2.0    // Dead-zone (degrees) to prevent ping-pong effect during handover
-)
+// DeployConfig holds environment-specific paths and port
+type DeployConfig struct {
+	AppPort            string `json:"app_port"`
+	GatewayDataPath    string `json:"gateway_data_path"`
+	SystemSettingsPath string `json:"settings_path"`
+}
 
-// SessionState defines the possible lifecycle phases of a connection
+// SystemSettings holds configurable parameters from settings.json
+type SystemSettings struct {
+	EarthRadiusKm       float64 `json:"earth_radius_km"`       // Mean radius of Earth
+	ElevationHysteresis float64 `json:"elevation_hysteresis"`  // Safe margin for handover
+	DefaultSatelliteID  string  `json:"default_satellite_id"`  // Default SAT ID for mock
+	TelemetryBufferSize int     `json:"telemetry_buffer_size"` // Channel capacity
+}
+
+// SessionState defines the lifecycle phases of a connection
 type SessionState string
 
 const (
-	StateAcquire SessionState = "Acquire" // Initial connection and gateway election
-	StateHold    SessionState = "Hold"    // Stable connection phase
-	StatePrepare SessionState = "Prepare" // Approaching horizon, predicting next gateway
-	StateExecute SessionState = "Execute" // Executing sub-100ms switch
-	StateRelease SessionState = "Release" // Cleaning up old gateway resources
+	StateAcquire SessionState = "Acquire" // Election phase
+	StateHold    SessionState = "Hold"    // Connected phase
+	StatePrepare SessionState = "Prepare" // Pre-handover phase
+	StateExecute SessionState = "Execute" // Switching phase
+	StateRelease SessionState = "Release" // Cleanup phase
 )
 
 // Location stores 3D geographic coordinates
 type Location struct {
-	Latitude  float64 `json:"lat"` // Latitude in decimal degrees
-	Longitude float64 `json:"lon"` // Longitude in decimal degrees
-	Altitude  float64 `json:"alt"` // Altitude in kilometers
+	Latitude  float64 `json:"lat"` // Decimal degrees
+	Longitude float64 `json:"lon"` // Decimal degrees
+	Altitude  float64 `json:"alt"` // Altitude in km
 }
 
-// AntennaModel describes technical specifications of the ground station antenna
+// AntennaModel describes radio hardware specs
 type AntennaModel struct {
-	GainDBi      float64 `json:"gain_dbi"`       // Antenna gain in dBi
-	BeamWidthDeg float64 `json:"beam_width_deg"` // Beam width in degrees
+	GainDBi      float64 `json:"gain_dbi"`
+	BeamWidthDeg float64 `json:"beam_width_deg"`
 }
 
 // Gateway represents a ground station infrastructure
 type Gateway struct {
-	ID              string       `json:"id"`                // Unique identifier for the gateway
-	Name            string       `json:"name"`              // Human-readable station name
-	Location        Location     `json:"location"`          // Physical location of the station
-	MaxSessions     int          `json:"max_sessions"`      // Max concurrent session capacity
-	CurrentSessions int          `json:"current_sessions"`  // Current number of active sessions
-	MinElevationDeg float64      `json:"min_elevation_deg"` // Min angle to maintain link viability
-	Antenna         AntennaModel `json:"antenna"`           // Radio hardware details
-	Status          string       `json:"status"`            // Current health: alive, degraded, dead
-	RecentHandovers int          `json:"recent_handovers"`  // Total successful handovers executed
+	ID              string       `json:"id"`
+	Name            string       `json:"name"`
+	Location        Location     `json:"location"`
+	MaxSessions     int          `json:"max_sessions"`
+	CurrentSessions int          `json:"current_sessions"`
+	MinElevationDeg float64      `json:"min_elevation_deg"`
+	Antenna         AntennaModel `json:"antenna"`
+	Status          string       `json:"status"` // alive, dead, degraded
 }
 
-// Session represents an active end-user router connection
+// Session represents an active router connection
 type Session struct {
-	ID               string       `json:"session_id"`                // Unique session UUID
-	RouterMAC        string       `json:"router_mac"`                // Hardware MAC of the client router
-	SatelliteID      string       `json:"satellite_id"`              // ID of the serving LEO satellite
-	CurrentGatewayID string       `json:"current_gateway_id"`        // ID of the active ground station
-	NextGatewayID    string       `json:"next_gateway_id,omitempty"` // Candidate for predictive handover
-	State            SessionState `json:"state"`                     // Current FSM state
-	CNRatio          float64      `json:"cn_ratio_db"`               // Carrier-to-Noise ratio in dB
-	SNR              float64      `json:"snr_db"`                    // Signal-to-Noise ratio in dB
-	PacketLoss       float64      `json:"packet_loss_pct"`           // Real-time packet loss percentage
-	StartTime        time.Time    `json:"start_time"`                // Timestamp of session creation
+	ID               string       `json:"session_id"`
+	RouterMAC        string       `json:"router_mac"`
+	SatelliteID      string       `json:"satellite_id"`
+	CurrentGatewayID string       `json:"current_gateway_id"`
+	NextGatewayID    string       `json:"next_gateway_id,omitempty"`
+	State            SessionState `json:"state"`
+	StartTime        time.Time    `json:"start_time"`
 }
 
-// HandoverEvent stores the history of a single gateway-to-gateway migration
-type HandoverEvent struct {
-	EventID   string    `json:"ho_id"`      // Unique event identifier
-	SessionID string    `json:"session_id"` // Associated session ID
-	OldGW     string    `json:"old_gw"`     // Source gateway ID
-	NewGW     string    `json:"new_gw"`     // Target gateway ID
-	LossPct   float64   `json:"loss_pct"`   // Packet loss during the switch
-	Timestamp time.Time `json:"time"`       // Execution timestamp
-}
-
-// TelemetryEvent used for broadcasting system logs via WebSocket (Global Firehose)
+// TelemetryEvent for real-time monitoring broadcasting
 type TelemetryEvent struct {
-	Timestamp   time.Time   `json:"timestamp"`   // Time of the event
-	EventType   string      `json:"event_type"`  // e.g., HANDOVER, ALERT, CAPACITY
-	GatewayID   string      `json:"gateway_id"`  // Associated gateway
-	Metrics     interface{} `json:"metrics"`     // Dynamic metrics payload
-	Description string      `json:"description"` // Human-readable log
+	Timestamp   time.Time   `json:"timestamp"`
+	EventType   string      `json:"event_type"`
+	GatewayID   string      `json:"gateway_id"`
+	Metrics     interface{} `json:"metrics"`
+	Description string      `json:"description"`
 }
