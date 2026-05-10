@@ -31,7 +31,7 @@ func (p *GatewayPool) AddGateway(g *Gateway) {
 	p.gateways[g.ID] = g
 }
 
-// GetAllGateways returns a snapshot of all gateways for API responses
+// Returns a snapshot of all gateways for API responses
 func (p *GatewayPool) GetAllGateways() []Gateway {
 	p.mu.RLock()
 	defer p.mu.RUnlock()

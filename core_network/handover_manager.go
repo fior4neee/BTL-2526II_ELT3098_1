@@ -36,7 +36,7 @@ func NewHandoverManager(pool *GatewayPool) *HandoverManager {
 	return hm
 }
 
-// HandleRouterConnect manages POST /api/v1/router/connect logic
+// POST /api/v1/router/connect logic
 func (hm *HandoverManager) HandleRouterConnect(mac string, loc Location) (*Session, error) {
 	if mac == "" {
 		return nil, errors.New("missing router MAC")
