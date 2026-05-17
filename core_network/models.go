@@ -15,6 +15,8 @@ type SystemSettings struct {
 	ElevationHysteresis float64 `json:"elevation_hysteresis"`  // Safe margin for handover
 	DefaultSatelliteID  string  `json:"default_satellite_id"`  // Default SAT ID for mock
 	TelemetryBufferSize int     `json:"telemetry_buffer_size"` // Channel capacity
+	ISPSecretSalt       string  `json:"isp_secret_salt"`
+	AuditLogPath        string  `json:"audit_log_path"`
 }
 
 // SessionState defines the lifecycle phases of a connection
@@ -71,4 +73,48 @@ type TelemetryEvent struct {
 	GatewayID   string      `json:"gateway_id"`
 	Metrics     interface{} `json:"metrics"`
 	Description string      `json:"description"`
+}
+
+// --- ADDED FOR PHASE 2: DEVICE PROVISIONING ---
+
+// DeviceStatus defines the lifecycle of a router hardware
+type DeviceStatus string
+
+const (
+	DeviceRegistered DeviceStatus = "registered"
+	DeviceActive     DeviceStatus = "active"
+	DeviceRevoked    DeviceStatus = "revoked"
+)
+
+// DeviceRecord holds hardware identity and security status
+type DeviceRecord struct {
+	DeviceID          string       `json:"device_id"`
+	MACAddress        string       `json:"mac"`
+	HardwareID        string       `json:"hw_id"`
+	Status            DeviceStatus `json:"status"`
+	ProvisioningToken string       `json:"provisioning_token"`
+	RegisteredAt      time.Time    `json:"registered_at"`
+	RevokedAt         *time.Time   `json:"revoked_at,omitempty"`
+}
+
+// RegisterDeviceReq represents the payload for POST /api/devices/register
+type RegisterDeviceReq struct {
+	DeviceID string `json:"device_id" binding:"required"`
+	MAC      string `json:"mac" binding:"required"`
+	HWID     string `json:"hw_id" binding:"required"`
+	Model    string `json:"model"`
+}
+
+// VerifyDeviceReq represents the payload for POST /api/devices/verify
+type VerifyDeviceReq struct {
+	DeviceID  string `json:"device_id" binding:"required"`
+	CSRPEM    string `json:"csr_pem" binding:"required"`
+	Nonce     string `json:"nonce" binding:"required"`
+	Signature string `json:"signature" binding:"required"`
+}
+
+// RevokeDeviceReq represents the payload for POST /api/devices/revoke
+type RevokeDeviceReq struct {
+	DeviceID string `json:"device_id" binding:"required"`
+	Reason   string `json:"reason" binding:"required"`
 }

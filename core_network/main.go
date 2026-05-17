@@ -25,7 +25,6 @@ func main() {
 	}
 
 	// 2. Load System Settings (Physics & Logic params)
-	// using the path provided in deployConfig
 	log.Printf("Loading system settings from: %s\n", deployConfig.SystemSettingsPath)
 	systemRaw, err := ioutil.ReadFile(deployConfig.SystemSettingsPath)
 	if err != nil {
@@ -36,6 +35,9 @@ func main() {
 	if err := json.Unmarshal(systemRaw, &systemSettings); err != nil {
 		log.Fatalf("Critical: Failed to parse system settings JSON: %v\n", err)
 	}
+
+	// Khởi tạo Module chống giả mạo thiết bị
+	provisioningManager := NewProvisioningManager(systemSettings)
 
 	// 3. Initialize Gateway Pool with System Settings
 	gatewayPool := NewGatewayPool(systemSettings)
@@ -99,6 +101,11 @@ func main() {
 			}
 			c.JSON(http.StatusOK, gin.H{"session": sess})
 		})
+
+		// ROUTE DEVICE PROVISIONING (Chuyển vào trong block v1 cho đúng cấu trúc)
+		v1.POST("/devices/register", provisioningManager.RegisterHandler)
+		v1.POST("/devices/verify", provisioningManager.VerifyHandler)
+		v1.POST("/devices/revoke", provisioningManager.RevokeHandler)
 	}
 
 	// 7. Start the Server using the port from deployConfig
