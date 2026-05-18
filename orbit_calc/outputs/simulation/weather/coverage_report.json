@@ -1,0 +1,176 @@
+{
+  "generated_at": "2026-05-10T04:18:39.533747+00:00",
+  "constellation": {
+    "type": "Walker Delta",
+    "N": 18,
+    "P": 6,
+    "F": 1,
+    "satellites_per_plane": 3,
+    "inclination_deg": 53.0,
+    "altitude_km": 1000.0,
+    "semi_major_axis_km": 7371.0,
+    "orbital_period_min": 104.9662,
+    "mean_motion_deg_s": 0.057161,
+    "orbital_velocity_km_s": 7.3537
+  },
+  "coverage_analysis": {
+    "constellation": {
+      "N": 18,
+      "P": 6,
+      "F": 1,
+      "inclination_deg": 53.0,
+      "altitude_km": 1000.0
+    },
+    "elevation_min_deg": 15.0,
+    "coverage_half_angle_deg": 18.396,
+    "footprint_radius_km": 2045.6,
+    "max_gap_s": 1740.0,
+    "mean_gap_s": 1035.9,
+    "coverage_pct": 38.056,
+    "handover_interval_min": 28.99,
+    "propagation_delay_ms": 8.03,
+    "round_trip_delay_ms": 16.07,
+    "station_results": {
+      "Hanoi": {
+        "coverage_pct": 40.278,
+        "max_gap_s": 1560.0,
+        "mean_gap_s": 1075.0,
+        "handover_count": 46,
+        "max_elevation_deg": 79.22,
+        "mean_elevation_deg": 31.13
+      },
+      "Danang": {
+        "coverage_pct": 40.0,
+        "max_gap_s": 1560.0,
+        "mean_gap_s": 978.1,
+        "handover_count": 51,
+        "max_elevation_deg": 82.44,
+        "mean_elevation_deg": 30.43
+      },
+      "HCMC": {
+        "coverage_pct": 33.819,
+        "max_gap_s": 1740.0,
+        "mean_gap_s": 1329.8,
+        "handover_count": 41,
+        "max_elevation_deg": 82.17,
+        "mean_elevation_deg": 31.84
+      },
+      "Hue": {
+        "coverage_pct": 40.208,
+        "max_gap_s": 1620.0,
+        "mean_gap_s": 922.5,
+        "handover_count": 54,
+        "max_elevation_deg": 82.58,
+        "mean_elevation_deg": 30.38
+      },
+      "Vinh": {
+        "coverage_pct": 42.222,
+        "max_gap_s": 1500.0,
+        "mean_gap_s": 745.1,
+        "handover_count": 65,
+        "max_elevation_deg": 69.78,
+        "mean_elevation_deg": 29.91
+      },
+      "CanTho": {
+        "coverage_pct": 31.806,
+        "max_gap_s": 1740.0,
+        "mean_gap_s": 1370.2,
+        "handover_count": 41,
+        "max_elevation_deg": 76.8,
+        "mean_elevation_deg": 32.32
+      }
+    }
+  },
+  "satellite_positions_t0": [
+    {
+      "id": "000",
+      "lat_deg": 0.0,
+      "lon_deg": 0.0
+    },
+    {
+      "id": "001",
+      "lat_deg": 43.76,
+      "lon_deg": 133.8114
+    },
+    {
+      "id": "002",
+      "lat_deg": -43.76,
+      "lon_deg": -133.8114
+    },
+    {
+      "id": "003",
+      "lat_deg": 15.8518,
+      "lon_deg": 72.3551
+    },
+    {
+      "id": "004",
+      "lat_deg": 30.8874,
+      "lon_deg": -146.793
+    },
+    {
+      "id": "005",
+      "lat_deg": -51.8599,
+      "lon_deg": -46.3302
+    },
+    {
+      "id": "006",
+      "lat_deg": 30.8874,
+      "lon_deg": 146.793
+    },
+    {
+      "id": "007",
+      "lat_deg": 15.8518,
+      "lon_deg": -72.3551
+    },
+    {
+      "id": "008",
+      "lat_deg": -51.8599,
+      "lon_deg": 46.3302
+    },
+    {
+      "id": "009",
+      "lat_deg": 43.76,
+      "lon_deg": -133.8114
+    },
+    {
+      "id": "010",
+      "lat_deg": 0.0,
+      "lon_deg": 0.0
+    },
+    {
+      "id": "011",
+      "lat_deg": -43.76,
+      "lon_deg": 133.8114
+    },
+    {
+      "id": "012",
+      "lat_deg": 51.8599,
+      "lon_deg": -46.3302
+    },
+    {
+      "id": "013",
+      "lat_deg": -15.8518,
+      "lon_deg": 72.3551
+    },
+    {
+      "id": "014",
+      "lat_deg": -30.8874,
+      "lon_deg": -146.793
+    },
+    {
+      "id": "015",
+      "lat_deg": 51.8599,
+      "lon_deg": 46.3302
+    },
+    {
+      "id": "016",
+      "lat_deg": -30.8874,
+      "lon_deg": 146.793
+    },
+    {
+      "id": "017",
+      "lat_deg": -15.8518,
+      "lon_deg": -72.3551
+    }
+  ]
+}

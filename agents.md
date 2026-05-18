@@ -123,9 +123,7 @@ VNU-LEO is a satellite constellation project with three core technical workstrea
 2. Spoofing detection (MAC/Hardware ID changes)
 3. Provisioning workflow integration with gateways
 4. Geo-fence boundary definition and enforcement
-5. Subscription tier logic (Fixed vs. Mobile)
-6. Billing event logging (usage attribution, costs)
-7. Admin API for device revocation
+5. Admin API for device revocation
 
 **Dependencies**:
 - **Hard dependency**: Core Network handover manager (P1)
@@ -195,11 +193,8 @@ VNU-LEO is a satellite constellation project with three core technical workstrea
 2. Active session list with connection details (C/N, duration, data transferred)
 3. Handover event timeline (last 100 events with metrics)
 4. Aggregate network graphs (traffic, handover frequency, signal quality trends)
-5. Device registry for provisioning (add/suspend/revoke devices) [P2]
-6. Billing dashboard (subscription summary, usage by customer, cost-per-user) [P2]
-7. Geo-fence event log [P2]
-8. API integration with Core Network (REST + WebSocket for real-time updates)
-9. Role-based access control (Super Admin, Operator, Billing Manager)
+5. API integration with Core Network (REST + WebSocket for real-time updates)
+6. Role-based access control (Super Admin, Operator, Billing Manager)
 
 **Dependencies**:
 - **Hard dependency**: Core Network module (telemetry API, WebSocket, provisioning endpoints)

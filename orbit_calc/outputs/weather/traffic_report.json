@@ -1,0 +1,192 @@
+{
+  "generated_at": "2026-05-10T04:15:02.510118+00:00",
+  "service": "Data/Weather Imaging",
+  "altitude_km": 1000.0,
+  "target_bitrate_mbps": 100.0,
+  "modcod": "16APSK 3/4",
+  "required_eb_n0_db": 9.4,
+  "availability_target_pct": 95.0,
+  "latency_budget_ms": 200.0,
+  "downlink": {
+    "service": "Data/Weather Imaging",
+    "direction": "downlink",
+    "altitude_km": 1000.0,
+    "elevation_deg": 30.0,
+    "frequency_ghz": 26.0,
+    "tx_power_dbw": 19.03,
+    "tx_gain_dbi": 40.0,
+    "eirp_dbw": 59.03,
+    "fspl_db": 185.37,
+    "atmospheric_loss_db": 21.25,
+    "total_path_loss_db": 206.61,
+    "slant_range_km": 1702.18,
+    "rx_gain_dbi": 47.69,
+    "rx_noise_temp_k": 150.0,
+    "g_over_t_db": 25.93,
+    "cn0_dbhz": 106.95,
+    "cn_db": 29.96,
+    "noise_bandwidth_hz": 50000000.0,
+    "eb_n0_db": 26.95,
+    "bitrate_bps": 100000000.0,
+    "required_eb_n0_db": 9.4,
+    "link_margin_db": 17.55,
+    "shannon_capacity_mbps": 497.66
+  },
+  "uplink": {
+    "service": "Data/Weather Imaging",
+    "direction": "uplink",
+    "altitude_km": 1000.0,
+    "elevation_deg": 30.0,
+    "frequency_ghz": 19.5,
+    "tx_power_dbw": 13.01,
+    "tx_gain_dbi": 45.19,
+    "eirp_dbw": 58.2,
+    "fspl_db": 182.87,
+    "atmospheric_loss_db": 13.58,
+    "total_path_loss_db": 196.45,
+    "slant_range_km": 1702.18,
+    "rx_gain_dbi": 34.0,
+    "rx_noise_temp_k": 500.0,
+    "g_over_t_db": 7.01,
+    "cn0_dbhz": 97.36,
+    "cn_db": 20.37,
+    "noise_bandwidth_hz": 50000000.0,
+    "eb_n0_db": 17.36,
+    "bitrate_bps": 100000000.0,
+    "required_eb_n0_db": 9.4,
+    "link_margin_db": 7.96,
+    "shannon_capacity_mbps": 339.07
+  },
+  "margin_vs_elevation": [
+    {
+      "elevation_deg": 15,
+      "cn_db": 24.7,
+      "eb_n0_db": 21.69,
+      "link_margin_db": 12.29,
+      "slant_range_km": 2408.28
+    },
+    {
+      "elevation_deg": 20,
+      "cn_db": 26.13,
+      "eb_n0_db": 23.12,
+      "link_margin_db": 13.72,
+      "slant_range_km": 2121.0
+    },
+    {
+      "elevation_deg": 25,
+      "cn_db": 27.33,
+      "eb_n0_db": 24.32,
+      "link_margin_db": 14.92,
+      "slant_range_km": 1889.15
+    },
+    {
+      "elevation_deg": 30,
+      "cn_db": 29.96,
+      "eb_n0_db": 26.95,
+      "link_margin_db": 17.55,
+      "slant_range_km": 1702.18
+    },
+    {
+      "elevation_deg": 35,
+      "cn_db": 32.78,
+      "eb_n0_db": 29.77,
+      "link_margin_db": 20.37,
+      "slant_range_km": 1551.09
+    },
+    {
+      "elevation_deg": 40,
+      "cn_db": 35.04,
+      "eb_n0_db": 32.03,
+      "link_margin_db": 22.63,
+      "slant_range_km": 1428.63
+    },
+    {
+      "elevation_deg": 45,
+      "cn_db": 36.87,
+      "eb_n0_db": 33.86,
+      "link_margin_db": 24.46,
+      "slant_range_km": 1329.13
+    },
+    {
+      "elevation_deg": 50,
+      "cn_db": 38.37,
+      "eb_n0_db": 35.36,
+      "link_margin_db": 25.96,
+      "slant_range_km": 1248.23
+    },
+    {
+      "elevation_deg": 55,
+      "cn_db": 39.6,
+      "eb_n0_db": 36.59,
+      "link_margin_db": 27.19,
+      "slant_range_km": 1182.59
+    },
+    {
+      "elevation_deg": 60,
+      "cn_db": 40.6,
+      "eb_n0_db": 37.59,
+      "link_margin_db": 28.19,
+      "slant_range_km": 1129.67
+    },
+    {
+      "elevation_deg": 65,
+      "cn_db": 41.41,
+      "eb_n0_db": 38.4,
+      "link_margin_db": 29.0,
+      "slant_range_km": 1087.55
+    },
+    {
+      "elevation_deg": 70,
+      "cn_db": 42.05,
+      "eb_n0_db": 39.03,
+      "link_margin_db": 29.63,
+      "slant_range_km": 1054.78
+    },
+    {
+      "elevation_deg": 75,
+      "cn_db": 42.52,
+      "eb_n0_db": 39.51,
+      "link_margin_db": 30.11,
+      "slant_range_km": 1030.28
+    },
+    {
+      "elevation_deg": 80,
+      "cn_db": 42.86,
+      "eb_n0_db": 39.85,
+      "link_margin_db": 30.45,
+      "slant_range_km": 1013.29
+    },
+    {
+      "elevation_deg": 85,
+      "cn_db": 43.06,
+      "eb_n0_db": 40.05,
+      "link_margin_db": 30.65,
+      "slant_range_km": 1003.3
+    },
+    {
+      "elevation_deg": 90,
+      "cn_db": 43.12,
+      "eb_n0_db": 40.11,
+      "link_margin_db": 30.71,
+      "slant_range_km": 1000.0
+    }
+  ],
+  "dwell_time_by_station": {
+    "Hanoi": {
+      "dwell_time_s": 643.7,
+      "dwell_time_min": 10.73,
+      "data_per_pass_gb": 8.046
+    },
+    "Danang": {
+      "dwell_time_s": 643.7,
+      "dwell_time_min": 10.73,
+      "data_per_pass_gb": 8.046
+    },
+    "HCMC": {
+      "dwell_time_s": 643.7,
+      "dwell_time_min": 10.73,
+      "data_per_pass_gb": 8.046
+    }
+  },
+  "one_way_delay_ms": 5.68
+}

@@ -1,0 +1,536 @@
+{
+  "generated_at": "2026-05-10T04:14:54.751309+00:00",
+  "constellation": {
+    "type": "Walker Delta",
+    "N": 90,
+    "P": 9,
+    "F": 1,
+    "satellites_per_plane": 10,
+    "inclination_deg": 53.0,
+    "altitude_km": 1000.0,
+    "semi_major_axis_km": 7371.0,
+    "orbital_period_min": 104.9662,
+    "mean_motion_deg_s": 0.057161,
+    "orbital_velocity_km_s": 7.3537
+  },
+  "coverage_analysis": {
+    "constellation": {
+      "N": 90,
+      "P": 9,
+      "F": 1,
+      "inclination_deg": 53.0,
+      "altitude_km": 1000.0
+    },
+    "elevation_min_deg": 15.0,
+    "coverage_half_angle_deg": 18.396,
+    "footprint_radius_km": 2045.6,
+    "max_gap_s": 0.0,
+    "mean_gap_s": 0.0,
+    "coverage_pct": 100.0,
+    "handover_interval_min": 1440.0,
+    "propagation_delay_ms": 8.03,
+    "round_trip_delay_ms": 16.07,
+    "station_results": {
+      "Hanoi": {
+        "coverage_pct": 100.0,
+        "max_gap_s": 0.0,
+        "mean_gap_s": 0.0,
+        "handover_count": 0,
+        "max_elevation_deg": 88.46,
+        "mean_elevation_deg": 39.63
+      },
+      "Danang": {
+        "coverage_pct": 100.0,
+        "max_gap_s": 0.0,
+        "mean_gap_s": 0.0,
+        "handover_count": 0,
+        "max_elevation_deg": 88.48,
+        "mean_elevation_deg": 39.68
+      },
+      "HCMC": {
+        "coverage_pct": 100.0,
+        "max_gap_s": 0.0,
+        "mean_gap_s": 0.0,
+        "handover_count": 0,
+        "max_elevation_deg": 87.0,
+        "mean_elevation_deg": 38.58
+      },
+      "Hue": {
+        "coverage_pct": 100.0,
+        "max_gap_s": 0.0,
+        "mean_gap_s": 0.0,
+        "handover_count": 0,
+        "max_elevation_deg": 88.1,
+        "mean_elevation_deg": 39.68
+      },
+      "Vinh": {
+        "coverage_pct": 100.0,
+        "max_gap_s": 0.0,
+        "mean_gap_s": 0.0,
+        "handover_count": 0,
+        "max_elevation_deg": 87.26,
+        "mean_elevation_deg": 39.65
+      },
+      "CanTho": {
+        "coverage_pct": 100.0,
+        "max_gap_s": 0.0,
+        "mean_gap_s": 0.0,
+        "handover_count": 0,
+        "max_elevation_deg": 87.84,
+        "mean_elevation_deg": 38.15
+      }
+    }
+  },
+  "satellite_positions_t0": [
+    {
+      "id": "000",
+      "lat_deg": 0.0,
+      "lon_deg": 0.0
+    },
+    {
+      "id": "001",
+      "lat_deg": 27.9971,
+      "lon_deg": 23.6171
+    },
+    {
+      "id": "002",
+      "lat_deg": 49.4243,
+      "lon_deg": 61.6354
+    },
+    {
+      "id": "003",
+      "lat_deg": 49.4243,
+      "lon_deg": 118.3646
+    },
+    {
+      "id": "004",
+      "lat_deg": 27.9971,
+      "lon_deg": 156.3829
+    },
+    {
+      "id": "005",
+      "lat_deg": 0.0,
+      "lon_deg": 180.0
+    },
+    {
+      "id": "006",
+      "lat_deg": -27.9971,
+      "lon_deg": -156.3829
+    },
+    {
+      "id": "007",
+      "lat_deg": -49.4243,
+      "lon_deg": -118.3646
+    },
+    {
+      "id": "008",
+      "lat_deg": -49.4243,
+      "lon_deg": -61.6354
+    },
+    {
+      "id": "009",
+      "lat_deg": -27.9971,
+      "lon_deg": -23.6171
+    },
+    {
+      "id": "010",
+      "lat_deg": 3.1936,
+      "lon_deg": 42.4098
+    },
+    {
+      "id": "011",
+      "lat_deg": 30.8874,
+      "lon_deg": 66.793
+    },
+    {
+      "id": "012",
+      "lat_deg": 50.7971,
+      "lon_deg": 107.4961
+    },
+    {
+      "id": "013",
+      "lat_deg": 47.7725,
+      "lon_deg": 163.8753
+    },
+    {
+      "id": "014",
+      "lat_deg": 25.0376,
+      "lon_deg": -160.6091
+    },
+    {
+      "id": "015",
+      "lat_deg": -3.1936,
+      "lon_deg": -137.5902
+    },
+    {
+      "id": "016",
+      "lat_deg": -30.8874,
+      "lon_deg": -113.207
+    },
+    {
+      "id": "017",
+      "lat_deg": -50.7971,
+      "lon_deg": -72.5039
+    },
+    {
+      "id": "018",
+      "lat_deg": -47.7725,
+      "lon_deg": -16.1247
+    },
+    {
+      "id": "019",
+      "lat_deg": -25.0376,
+      "lon_deg": 19.3909
+    },
+    {
+      "id": "020",
+      "lat_deg": 6.3815,
+      "lon_deg": 84.8345
+    },
+    {
+      "id": "021",
+      "lat_deg": 33.6955,
+      "lon_deg": 110.1637
+    },
+    {
+      "id": "022",
+      "lat_deg": 51.8599,
+      "lon_deg": 153.6698
+    },
+    {
+      "id": "023",
+      "lat_deg": 45.8739,
+      "lon_deg": -150.9774
+    },
+    {
+      "id": "024",
+      "lat_deg": 22.0204,
+      "lon_deg": -117.7442
+    },
+    {
+      "id": "025",
+      "lat_deg": -6.3815,
+      "lon_deg": -95.1655
+    },
+    {
+      "id": "026",
+      "lat_deg": -33.6955,
+      "lon_deg": -69.8363
+    },
+    {
+      "id": "027",
+      "lat_deg": -51.8599,
+      "lon_deg": -26.3302
+    },
+    {
+      "id": "028",
+      "lat_deg": -45.8739,
+      "lon_deg": 29.0226
+    },
+    {
+      "id": "029",
+      "lat_deg": -22.0204,
+      "lon_deg": 62.2558
+    },
+    {
+      "id": "030",
+      "lat_deg": 9.558,
+      "lon_deg": 127.2897
+    },
+    {
+      "id": "031",
+      "lat_deg": 36.4059,
+      "lon_deg": 153.7581
+    },
+    {
+      "id": "032",
+      "lat_deg": 52.5855,
+      "lon_deg": -159.9065
+    },
+    {
+      "id": "033",
+      "lat_deg": 43.76,
+      "lon_deg": -106.1886
+    },
+    {
+      "id": "034",
+      "lat_deg": 18.9555,
+      "lon_deg": -74.9998
+    },
+    {
+      "id": "035",
+      "lat_deg": -9.558,
+      "lon_deg": -52.7103
+    },
+    {
+      "id": "036",
+      "lat_deg": -36.4059,
+      "lon_deg": -26.2419
+    },
+    {
+      "id": "037",
+      "lat_deg": -52.5855,
+      "lon_deg": 20.0935
+    },
+    {
+      "id": "038",
+      "lat_deg": -43.76,
+      "lon_deg": 73.8114
+    },
+    {
+      "id": "039",
+      "lat_deg": -18.9555,
+      "lon_deg": 105.0002
+    },
+    {
+      "id": "040",
+      "lat_deg": 12.7169,
+      "lon_deg": 169.791
+    },
+    {
+      "id": "041",
+      "lat_deg": 39.001,
+      "lon_deg": -162.3934
+    },
+    {
+      "id": "042",
+      "lat_deg": 52.9537,
+      "lon_deg": -113.3209
+    },
+    {
+      "id": "043",
+      "lat_deg": 41.4601,
+      "lon_deg": -61.7402
+    },
+    {
+      "id": "044",
+      "lat_deg": 15.8518,
+      "lon_deg": -32.3551
+    },
+    {
+      "id": "045",
+      "lat_deg": -12.7169,
+      "lon_deg": -10.209
+    },
+    {
+      "id": "046",
+      "lat_deg": -39.001,
+      "lon_deg": 17.6066
+    },
+    {
+      "id": "047",
+      "lat_deg": -52.9537,
+      "lon_deg": 66.6791
+    },
+    {
+      "id": "048",
+      "lat_deg": -41.4601,
+      "lon_deg": 118.2598
+    },
+    {
+      "id": "049",
+      "lat_deg": -15.8518,
+      "lon_deg": 147.6449
+    },
+    {
+      "id": "050",
+      "lat_deg": 15.8518,
+      "lon_deg": -147.6449
+    },
+    {
+      "id": "051",
+      "lat_deg": 41.4601,
+      "lon_deg": -118.2598
+    },
+    {
+      "id": "052",
+      "lat_deg": 52.9537,
+      "lon_deg": -66.6791
+    },
+    {
+      "id": "053",
+      "lat_deg": 39.001,
+      "lon_deg": -17.6066
+    },
+    {
+      "id": "054",
+      "lat_deg": 12.7169,
+      "lon_deg": 10.209
+    },
+    {
+      "id": "055",
+      "lat_deg": -15.8518,
+      "lon_deg": 32.3551
+    },
+    {
+      "id": "056",
+      "lat_deg": -41.4601,
+      "lon_deg": 61.7402
+    },
+    {
+      "id": "057",
+      "lat_deg": -52.9537,
+      "lon_deg": 113.3209
+    },
+    {
+      "id": "058",
+      "lat_deg": -39.001,
+      "lon_deg": 162.3934
+    },
+    {
+      "id": "059",
+      "lat_deg": -12.7169,
+      "lon_deg": -169.791
+    },
+    {
+      "id": "060",
+      "lat_deg": 18.9555,
+      "lon_deg": -105.0002
+    },
+    {
+      "id": "061",
+      "lat_deg": 43.76,
+      "lon_deg": -73.8114
+    },
+    {
+      "id": "062",
+      "lat_deg": 52.5855,
+      "lon_deg": -20.0935
+    },
+    {
+      "id": "063",
+      "lat_deg": 36.4059,
+      "lon_deg": 26.2419
+    },
+    {
+      "id": "064",
+      "lat_deg": 9.558,
+      "lon_deg": 52.7103
+    },
+    {
+      "id": "065",
+      "lat_deg": -18.9555,
+      "lon_deg": 74.9998
+    },
+    {
+      "id": "066",
+      "lat_deg": -43.76,
+      "lon_deg": 106.1886
+    },
+    {
+      "id": "067",
+      "lat_deg": -52.5855,
+      "lon_deg": 159.9065
+    },
+    {
+      "id": "068",
+      "lat_deg": -36.4059,
+      "lon_deg": -153.7581
+    },
+    {
+      "id": "069",
+      "lat_deg": -9.558,
+      "lon_deg": -127.2897
+    },
+    {
+      "id": "070",
+      "lat_deg": 22.0204,
+      "lon_deg": -62.2558
+    },
+    {
+      "id": "071",
+      "lat_deg": 45.8739,
+      "lon_deg": -29.0226
+    },
+    {
+      "id": "072",
+      "lat_deg": 51.8599,
+      "lon_deg": 26.3302
+    },
+    {
+      "id": "073",
+      "lat_deg": 33.6955,
+      "lon_deg": 69.8363
+    },
+    {
+      "id": "074",
+      "lat_deg": 6.3815,
+      "lon_deg": 95.1655
+    },
+    {
+      "id": "075",
+      "lat_deg": -22.0204,
+      "lon_deg": 117.7442
+    },
+    {
+      "id": "076",
+      "lat_deg": -45.8739,
+      "lon_deg": 150.9774
+    },
+    {
+      "id": "077",
+      "lat_deg": -51.8599,
+      "lon_deg": -153.6698
+    },
+    {
+      "id": "078",
+      "lat_deg": -33.6955,
+      "lon_deg": -110.1637
+    },
+    {
+      "id": "079",
+      "lat_deg": -6.3815,
+      "lon_deg": -84.8345
+    },
+    {
+      "id": "080",
+      "lat_deg": 25.0376,
+      "lon_deg": -19.3909
+    },
+    {
+      "id": "081",
+      "lat_deg": 47.7725,
+      "lon_deg": 16.1247
+    },
+    {
+      "id": "082",
+      "lat_deg": 50.7971,
+      "lon_deg": 72.5039
+    },
+    {
+      "id": "083",
+      "lat_deg": 30.8874,
+      "lon_deg": 113.207
+    },
+    {
+      "id": "084",
+      "lat_deg": 3.1936,
+      "lon_deg": 137.5902
+    },
+    {
+      "id": "085",
+      "lat_deg": -25.0376,
+      "lon_deg": 160.6091
+    },
+    {
+      "id": "086",
+      "lat_deg": -47.7725,
+      "lon_deg": -163.8753
+    },
+    {
+      "id": "087",
+      "lat_deg": -50.7971,
+      "lon_deg": -107.4961
+    },
+    {
+      "id": "088",
+      "lat_deg": -30.8874,
+      "lon_deg": -66.793
+    },
+    {
+      "id": "089",
+      "lat_deg": -3.1936,
+      "lon_deg": -42.4098
+    }
+  ]
+}
