@@ -1,9 +1,6 @@
 # BTL-2526II_ELT3098_1
 
-## Status
-29/04/2026: Initial project skeleton and planning documents are ready.
-
-## Suggested Tech Stack
+## Tech Stack
 
 | Area | Technology | Suggested Version | Official Docs |
 |---|---|---|---|
@@ -59,3 +56,36 @@ BTL-2526II_ELT3098_1/
     └── remediation_list.md         SvelteKit setup, API integration, admin workflows
 
 ```
+
+## Client App - Getting Started (client_app)
+
+### Prerequisites
+- Node.js and `npm`
+- Rust toolchain: `rustup`, `rustc`, and `cargo`
+- Windows only: Visual Studio Build Tools (MSVC) and WebView2 runtime
+- Start every command from the `client_app` directory
+
+Install the JavaScript dependencies once before running either version:
+
+```bash
+cd client_app
+npm install
+```
+
+### Web version
+Run the Svelte/Vite app in development mode:
+
+```bash
+cd client_app
+npm run dev
+```
+
+### Desktop version
+Run the Tauri desktop app with the Rust backend:
+
+```bash
+cd client_app
+npm run tauri dev
+```
+
+If you need to confirm the Rust toolchain is available, run `rustc --version` and `cargo --version` first.

@@ -119,12 +119,7 @@
 
 ## Svelte Project Setup (First Time)
 
-- [ ] Scaffold SvelteKit: `npm create svelte@latest . -- --template demo`
-- [ ] Install chart library: `npm install chart.js @sveltejs/chart`
-- [ ] Install UI framework: `npm install -D daisyui tailwindcss` (or similar)
-- [ ] Build & dev: `npm run dev` (dev server), `npm run build` (production)
-
-## References
+ [x] Build & dev: `npm run dev` (dev server), `npm run build` (production)
 - Tauri v2 guide: https://v2.tauri.app/
 - Phased-array antenna patterns & beam steering (IEEE Trans. Antennas Propag.)
 - Svelte documentation: https://svelte.dev/
