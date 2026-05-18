@@ -52,7 +52,7 @@ web_admin/
 cd web_admin
 
 # Install dependencies
-npm install --legacy-peer-deps
+npm install
 
 # Start dev server (http://localhost:5173)
 npm run dev
