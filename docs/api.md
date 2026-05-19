@@ -1,35 +1,175 @@
-# API Reference (Phase 1 & Phase 2)
+# API Reference
 
-All endpoints use HTTPS.
+The Core Network exposes the documented API under `/api`. Existing `/api/v1` routes remain available as compatibility aliases for current deploy scripts and the orbit publisher.
 
-## Phase 1 (Core) APIs
+Authentication is not enforced yet because the backend has no auth service.
 
-| Method | HTTPS Path | Description + Responses (200 and 400 variants) | Parameters | Authorization | Responses |
-|---|---|---|---|---|---|
-| GET | /api/gateways | <ul style="list-style-type: none; padding-left: 0;"><li>Returns all gateway stations with live status, load, and signal metrics.</li><li>`200`: list of gateways with health, capacity, and current satellite link stats.</li><li>`400 Bad Request`: invalid query filters.</li><li>`404 Not Found`: gateway set unavailable.</li></ul> | <pre>query:<br>  region: string<br>  status: string (enum: ["alive","degraded","dead"])</pre> | Bearer JWT | <pre>{<br>  "200": {<br>    "description": "OK",<br>    "content": {<br>      "application/json": {<br>        "schema": {"type": "object", "properties": {"gateways": {"type": "array"}}},<br>        "example": {"gateways": [{"id": "gw-1", "status": "alive"}]}<br>      }<br>    }<br>  },<br>  "400": {"description": "Bad Request"},<br>  "404": {"description": "Not Found"}<br>}</pre> |
-| GET | /api/satellites | <ul style="list-style-type: none; padding-left: 0;"><li>Returns current satellite states used for elevation and link quality.</li><li>`200`: list of satellites with ephemeris-derived position and elevation per gateway.</li><li>`400 Bad Request`: invalid time window.</li><li>`404 Not Found`: no satellite data loaded.</li></ul> | <pre>query:<br>  at: string (format: date-time)<br>  gateway_id: string</pre> | Bearer JWT | <pre>{<br>  "200": {<br>    "description": "OK",<br>    "content": {<br>      "application/json": {<br>        "schema": {"type": "object", "properties": {"satellites": {"type": "array"}}},<br>        "example": {"satellites": [{"id": "sat-1", "elevation_deg": 32.5}]}<br>      }<br>    }<br>  },<br>  "400": {"description": "Bad Request"},<br>  "404": {"description": "Not Found"}<br>}</pre> |
-| GET | /api/sessions | <ul style="list-style-type: none; padding-left: 0;"><li>Returns active user sessions across gateways.</li><li>`200`: array of sessions with gateway, satellite, C/N, duration, and state.</li><li>`400 Bad Request`: invalid pagination.</li><li>`404 Not Found`: no sessions match.</li></ul> | <pre>query:<br>  page: integer<br>  page_size: integer<br>  state: string (enum: ["acquire","hold","prepare","execute","release"])</pre> | Bearer JWT | <pre>{<br>  "200": {<br>    "description": "OK",<br>    "content": {<br>      "application/json": {<br>        "schema": {"type": "object", "properties": {"sessions": {"type": "array"}}},<br>        "example": {"sessions": [{"id": "sess-1", "state": "hold"}]}<br>      }<br>    }<br>  },<br>  "400": {"description": "Bad Request"},<br>  "404": {"description": "Not Found"}<br>}</pre> |
-| GET | /api/handovers | <ul style="list-style-type: none; padding-left: 0;"><li>Returns recent handover events.</li><li>`200`: list of handover events with timings, old/new gateway, duration, packet loss.</li><li>`400 Bad Request`: invalid range.</li><li>`404 Not Found`: no events in range.</li></ul> | <pre>query:<br>  from: string (format: date-time)<br>  to: string (format: date-time)<br>  gateway_id: string</pre> | Bearer JWT | <pre>{<br>  "200": {<br>    "description": "OK",<br>    "content": {<br>      "application/json": {<br>        "schema": {"type": "object", "properties": {"handovers": {"type": "array"}}},<br>        "example": {"handovers": [{"id": "ho-1", "duration_ms": 85}]}<br>      }<br>    }<br>  },<br>  "400": {"description": "Bad Request"},<br>  "404": {"description": "Not Found"}<br>}</pre> |
-| POST | /api/handover/trigger | <ul style="list-style-type: none; padding-left: 0;"><li>Manually initiates a handover for a session (for demo/testing).</li><li>`200`: handover accepted with planned target gateway.</li><li>`400 Bad Request`: session not eligible.</li><li>`409 Conflict`: handover already in progress.</li></ul> | <pre>body:<br>  **session_id***: string<br>  target_gateway_id: string</pre> | Bearer JWT; X-Request-Id | <pre>{<br>  "200": {<br>    "description": "Accepted",<br>    "content": {<br>      "application/json": {<br>        "schema": {"type": "object"},<br>        "example": {"handover_id": "ho-1", "eta_ms": 120}<br>      }<br>    }<br>  },<br>  "400": {"description": "Bad Request"},<br>  "409": {"description": "Conflict"}<br>}</pre> |
-| GET | /api/telemetry/stream | <ul style="list-style-type: none; padding-left: 0;"><li>WebSocket endpoint for real-time gateway/session/handover telemetry.</li><li>`200`: websocket upgrade accepted and stream begins.</li><li>`400 Bad Request`: invalid token or missing parameters.</li><li>`401 Unauthorized`: authentication failed.</li></ul> | <pre>query:<br>  **token***: string<br>  topics: string (csv: gateways,sessions,handovers)</pre> | Signed JWT (short-lived) | <pre>{<br>  "101": {"description": "Switching Protocols"},<br>  "400": {"description": "Bad Request"},<br>  "401": {"description": "Unauthorized"}<br>}</pre> |
-| GET | /api/health | <ul style="list-style-type: none; padding-left: 0;"><li>Returns service health and build metadata.</li><li>`200`: status OK with version and uptime.</li><li>`400 Bad Request`: unsupported probe type.</li></ul> | <pre>none</pre> |  | <pre>{<br>  "200": {<br>    "description": "OK",<br>    "content": {<br>      "application/json": {<br>        "schema": {"type": "object"},<br>        "example": {"status": "ok", "version": "1.0.0"}<br>      }<br>    }<br>  },<br>  "400": {"description": "Bad Request"}<br>}</pre> |
+## Core Monitoring
 
-## Phase 2 (Advanced/Optional) APIs
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/health` | Service health, version, selected satellite, and port. |
+| `GET` | `/api/gateways` | Gateway stations with location, status, capacity, antenna model, and session load. |
+| `GET` | `/api/sessions` | Active router sessions with gateway, satellite, state, and start time. |
+| `GET` | `/api/satellites` | Latest ephemeris records received from `POST /api/ephemeris/update`. Returns `404` until data is loaded. |
+| `GET` | `/api/handovers` | Recent handover events, newest first. |
+| `POST` | `/api/handover/trigger` | Manually triggers a demo handover for an active session. |
+| `GET` | `/api/telemetry/stream` | Server-sent event stream for live gateway, session, handover, and ephemeris events. |
+| `POST` | `/api/ephemeris/update` | Receives satellite state updates from `orbit_calc`. |
 
-| Method | HTTPS Path | Description + Responses (200 and 400 variants) | Parameters | Authorization | Responses |
-|---|---|---|---|---|---|
-| POST | /api/devices/register | <ul style="list-style-type: none; padding-left: 0;"><li>Registers a router device (MAC/Hardware ID) and issues a provisioning token.</li><li>`200`: device created with token and status.</li><li>`400 Bad Request`: invalid identifiers.</li><li>`409 Conflict`: device already registered.</li></ul> | <pre>body:<br>  **device_id***: string<br>  **mac***: string<br>  **hw_id***: string<br>  model: string</pre> | Bearer JWT (admin or factory); mTLS | <pre>{<br>  "200": {<br>    "description": "OK",<br>    "content": {<br>      "application/json": {<br>        "schema": {"type": "object"},<br>        "example": {"device_id": "dev-1", "status": "registered"}<br>      }<br>    }<br>  },<br>  "400": {"description": "Bad Request"},<br>  "409": {"description": "Conflict"}<br>}</pre> |
-| POST | /api/devices/verify | <ul style="list-style-type: none; padding-left: 0;"><li>Verifies device certificate on first connection.</li><li>`200`: verification successful and device activated.</li><li>`400 Bad Request`: invalid certificate.</li><li>`401 Unauthorized`: signature mismatch.</li></ul> | <pre>body:<br>  **device_id***: string<br>  **csr_pem***: string<br>  **nonce***: string<br>  **signature***: string (base64)</pre> | Device key signature; X-Request-Id | <pre>{<br>  "200": {<br>    "description": "OK",<br>    "content": {<br>      "application/json": {<br>        "schema": {"type": "object"},<br>        "example": {"device_id": "dev-1", "status": "active"}<br>      }<br>    }<br>  },<br>  "400": {"description": "Bad Request"},<br>  "401": {"description": "Unauthorized"}<br>}</pre> |
-| POST | /api/devices/revoke | <ul style="list-style-type: none; padding-left: 0;"><li>Revokes a device and blocks further access.</li><li>`200`: device revoked with timestamp.</li><li>`400 Bad Request`: invalid device ID.</li><li>`404 Not Found`: device not found.</li></ul> | <pre>body:<br>  **device_id***: string<br>  reason: string</pre> | Bearer JWT (admin); X-Request-Id | <pre>{<br>  "200": {<br>    "description": "OK",<br>    "content": {<br>      "application/json": {<br>        "schema": {"type": "object"},<br>        "example": {"device_id": "dev-1", "status": "revoked"}<br>      }<br>    }<br>  },<br>  "400": {"description": "Bad Request"},<br>  "404": {"description": "Not Found"}<br>}</pre> |
-| GET | /api/billing/usage | <ul style="list-style-type: none; padding-left: 0;"><li>Returns usage records by device or account.</li><li>`200`: usage list with timestamps and totals.</li><li>`400 Bad Request`: invalid filter or date range.</li><li>`404 Not Found`: no records.</li></ul> | <pre>query:<br>  device_id: string<br>  account_id: string<br>  **from***: string (format: date-time)<br>  **to***: string (format: date-time)</pre> | Bearer JWT (billing role) | <pre>{<br>  "200": {<br>    "description": "OK",<br>    "content": {<br>      "application/json": {<br>        "schema": {"type": "object", "properties": {"usage": {"type": "array"}}},<br>        "example": {"usage": [{"id": "u-1", "bytes_down": 1024}]}<br>      }<br>    }<br>  },<br>  "400": {"description": "Bad Request"},<br>  "404": {"description": "Not Found"}<br>}</pre> |
-| POST | /api/billing/event | <ul style="list-style-type: none; padding-left: 0;"><li>Ingests a billing event (session start/stop, usage delta).</li><li>`200`: event accepted and stored.</li><li>`400 Bad Request`: malformed event.</li><li>`409 Conflict`: duplicate event ID.</li></ul> | <pre>body:<br>  **event_id***: string (format: uuid)<br>  **type***: string (enum: ["start","stop","usage"])<br>  **session_id***: string<br>  **device_id***: string<br>  **bytes_delta***: integer<br>  **ts***: string (format: date-time)</pre> | Bearer JWT; Idempotency-Key | <pre>{<br>  "200": {<br>    "description": "Accepted",<br>    "content": {<br>      "application/json": {<br>        "schema": {"type": "object"},<br>        "example": {"event_id": "e-1", "status": "accepted"}<br>      }<br>    }<br>  },<br>  "400": {"description": "Bad Request"},<br>  "409": {"description": "Conflict"}<br>}</pre> |
-| GET | /api/geofence/status | <ul style="list-style-type: none; padding-left: 0;"><li>Returns geo-fence status for a device or session.</li><li>`200`: inside/outside status with last location.</li><li>`400 Bad Request`: missing device/session.</li><li>`404 Not Found`: no geo-fence rule.</li></ul> | <pre>query:<br>  device_id: string<br>  session_id: string</pre> | Bearer JWT | <pre>{<br>  "200": {<br>    "description": "OK",<br>    "content": {<br>      "application/json": {<br>        "schema": {"type": "object"},<br>        "example": {"status": "inside", "lat": 10.8, "lon": 106.7}<br>      }<br>    }<br>  },<br>  "400": {"description": "Bad Request"},<br>  "404": {"description": "Not Found"}<br>}</pre> |
-| POST | /api/geofence/override | <ul style="list-style-type: none; padding-left: 0;"><li>Temporarily overrides geo-fence enforcement (admin use).</li><li>`200`: override applied with TTL.</li><li>`400 Bad Request`: invalid TTL or scope.</li><li>`403 Forbidden`: insufficient role.</li></ul> | <pre>body:<br>  **device_id***: string<br>  **ttl_s***: integer<br>  **reason***: string</pre> | Bearer JWT (admin); X-Request-Id | <pre>{<br>  "200": {<br>    "description": "OK",<br>    "content": {<br>      "application/json": {<br>        "schema": {"type": "object"},<br>        "example": {"override_id": "ov-1", "expires_at": "2026-05-10T00:00:00Z"}<br>      }<br>    }<br>  },<br>  "400": {"description": "Bad Request"},<br>  "403": {"description": "Forbidden"}<br>}</pre> |
+### `GET /api/gateways`
 
-## Note
+Response:
 
-APIs live in `core_network`.
+```json
+{
+  "gateways": [
+    {
+      "id": "GW-HAN-01",
+      "name": "Hanoi Gateway",
+      "location": { "lat": 21.0285, "lon": 105.8542, "alt": 0.015 },
+      "max_sessions": 50000,
+      "current_sessions": 12,
+      "min_elevation_deg": 25,
+      "antenna": { "gain_dbi": 42.5, "beam_width_deg": 1.5 },
+      "status": "alive"
+    }
+  ]
+}
+```
 
-`orbit_calc` exports data files (TLE/JSON).
+### `GET /api/sessions`
 
-For real-time satellite and link data, still need a telemetry/WebSocket stream from `core_network` to `client_app` for antenna pointing and signal metrics.
+Response:
+
+```json
+{
+  "sessions": [
+    {
+      "session_id": "SES-1001",
+      "router_mac": "AA:BB:CC:DD:EE:FF",
+      "satellite_id": "SAT-VNU-01",
+      "current_gateway_id": "GW-HAN-01",
+      "state": "Hold",
+      "start_time": "2026-05-19T08:30:00Z"
+    }
+  ]
+}
+```
+
+### `POST /api/handover/trigger`
+
+Request:
+
+```json
+{
+  "session_id": "SES-1001",
+  "target_gateway_id": "GW-DAN-01"
+}
+```
+
+Response:
+
+```json
+{
+  "handover_id": "HO-1770000000000",
+  "eta_ms": 75,
+  "handover": {
+    "id": "HO-1770000000000",
+    "timestamp": "2026-05-19T08:31:00Z",
+    "session_id": "SES-1001",
+    "from_gateway": "GW-HAN-01",
+    "to_gateway": "GW-DAN-01",
+    "duration_ms": 75,
+    "packet_loss": 0.0005,
+    "success": true
+  }
+}
+```
+
+Status codes:
+
+- `200`: handover accepted and completed in the demo state machine.
+- `400`: missing payload, unknown session, invalid target, or ineligible session.
+- `409`: handover already in progress.
+
+### `POST /api/ephemeris/update`
+
+Request:
+
+```json
+{
+  "data": [
+    {
+      "satellite_id": "SAT-VNU-01",
+      "latitude": 16.1,
+      "longitude": 108.2,
+      "altitude": 500,
+      "elevation": 42.4,
+      "azimuth": 136.7,
+      "timestamp": "2026-05-19T08:30:00Z"
+    }
+  ]
+}
+```
+
+Response:
+
+```json
+{ "status": "ephemeris updated", "count": 1 }
+```
+
+## Device Provisioning
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/devices` | Lists registered router devices and verification status. |
+| `POST` | `/api/devices/register` | Registers a device and returns a provisioning token. |
+| `POST` | `/api/devices/verify` | Verifies a device certificate/signature and activates the device. |
+| `POST` | `/api/devices/revoke` | Revokes a device by `device_id`. |
+| `POST` | `/api/devices/{mac}/suspend` | Suspends a non-revoked device by MAC address. |
+
+### `GET /api/devices`
+
+Response:
+
+```json
+{
+  "devices": [
+    {
+      "device_id": "router-vnu-leo-001",
+      "mac": "00:1B:44:11:3A:B7",
+      "hw_id": "SEC-ENC-998877A",
+      "status": "active",
+      "provisioning_token": "a1b2...",
+      "registered_at": "2026-05-12T15:33:25Z"
+    }
+  ]
+}
+```
+
+### `POST /api/devices/{mac}/suspend`
+
+Response:
+
+```json
+{
+  "device_id": "router-vnu-leo-001",
+  "mac": "00:1B:44:11:3A:B7",
+  "status": "suspended",
+  "timestamp": "2026-05-19T08:30:00Z"
+}
+```
+
+Status codes:
+
+- `200`: device suspended.
+- `400`: invalid MAC format.
+- `404`: device not found.
+- `409`: revoked devices cannot be suspended.
+
+## Notes
+
+- `orbit_calc` publishes ephemeris with `POST /api/v1/ephemeris/update` or `POST /api/ephemeris/update`.
+- The web admin uses `VITE_CORE_API_BASE` when set, otherwise `http://localhost:8081/api`.
+- Billing, geo-fence billing, alert feeds, and admin audit-log APIs are out of scope for the current backend.

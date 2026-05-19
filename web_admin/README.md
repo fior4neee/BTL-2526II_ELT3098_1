@@ -1,142 +1,107 @@
-# web_admin — VNU-LEO ISP Admin Dashboard
+# web_admin - VNU-LEO ISP Admin Dashboard
 
-**Technology**: SvelteKit 2.x + TailwindCSS 3.x + DaisyUI 4.x + Chart.js  
-**Phase**: P1 (Core Monitoring) + P2 (Security & Provisioning)  
-**Owner**: Frontend/DevOps Team
-
----
+**Technology**: SvelteKit 2.x + TailwindCSS 3.x + DaisyUI 4.x  
+**Scope**: API-backed gateway, session, satellite, handover, and device monitoring
 
 ## Overview
 
-Real-time ISP operator dashboard for the VNU-LEO satellite constellation. Provides live monitoring of gateways, sessions, handover events, device provisioning, and security operations.
+The web admin is an operator dashboard for the VNU-LEO Core Network. It reads live data from the Go backend instead of maintaining random browser-side mocks.
+
+The UI intentionally does not include billing, alert feeds, time-series charts, admin audit logs, or static RBAC screens because those modules are not implemented by the current backend.
 
 ## Project Structure
 
-```
+```text
 web_admin/
 ├── src/
-│   ├── app.css                     Global styles (fonts, CSS vars, utilities)
-│   ├── app.html                    Base HTML template
+│   ├── app.css
+│   ├── app.html
 │   ├── lib/
-│   │   ├── types.ts                Shared TypeScript interfaces
+│   │   ├── types.ts
 │   │   ├── api/
-│   │   │   └── mock.ts             Mock backend (replace with real Go API calls)
+│   │   │   └── client.ts
 │   │   ├── stores/
-│   │   │   └── index.ts            Svelte writable stores + live update engine
+│   │   │   └── index.ts
 │   │   └── components/
-│   │       ├── Sidebar.svelte      Navigation sidebar
-│   │       ├── Topbar.svelte       Page header with clock + alerts
-│   │       ├── StatCard.svelte     Metric card component
-│   │       ├── ConstellationMap.svelte  SVG Vietnam map with gateways + satellites
-│   │       └── AlertPanel.svelte   Alert list with resolve actions
+│   │       ├── Sidebar.svelte
+│   │       ├── Topbar.svelte
+│   │       └── ConstellationMap.svelte
 │   └── routes/
-│       ├── +layout.svelte          Root layout (sidebar + live update init)
-│       ├── +page.svelte            Home/Overview page (P1)
+│       ├── +layout.svelte
+│       ├── +page.svelte
 │       ├── monitoring/
-│       │   └── +page.svelte        Detailed monitoring: charts, sessions, handovers (P1)
+│       │   └── +page.svelte
 │       └── security/
-│           └── +page.svelte        Security, device registry, RBAC (P2)
-├── static/
-│   └── favicon.svg
+│           └── +page.svelte
 ├── package.json
 ├── svelte.config.js
 ├── vite.config.ts
-├── tailwind.config.js
-├── postcss.config.js
-└── tsconfig.json
+└── tailwind.config.js
 ```
 
 ## Quick Start
 
 ```bash
+cd core_network
+go run .
+```
+
+```bash
 cd web_admin
-
-# Install dependencies
 npm install
-
-# Start dev server (http://localhost:5173)
 npm run dev
+```
 
-# Production build
-npm run build
-npm run preview
+The default Core API base is `http://localhost:8080/api/v1`. Override it with:
+
+```bash
+VITE_CORE_API_BASE=http://localhost:8080/api/v1 npm run dev
 ```
 
 ## Pages
 
-### `/` — Overview (P1)
-- Network stat cards (sessions, traffic, handover latency, packet loss)
-- Gateway status cards with live CPU/memory/BW bars
-- SVG constellation map (Vietnam, animated satellite positions)
-- Alert panel (resolve in-place)
+### `/` - Overview
 
-### `/monitoring` — Detailed Monitoring (P1)
-- Gateway drill-down cards (click to filter sessions)
-- 4 live charts: traffic volume, session count, C/N ratio per gateway, handover frequency
-- Session list with filtering + pagination (1 Hz updates)
-- Handover history table (last 100, searchable)
+- Gateway list from `GET /api/gateways`
+- Satellite list and map from `GET /api/satellites`
+- Empty satellite state until ephemeris is posted to the backend
 
-### `/security` — Security (P2)
-- **Device Registry**: registered devices, suspend/revoke with confirmation dialog, CSV export
-- **Security Alerts**: all alerts, resolve button, suspicious activity, admin audit log
-- **Admin RBAC**: user list, role permissions matrix, disable/enable accounts
+### `/monitoring` - Monitoring
 
-## Connecting to Real Backend
+- Gateway status cards from `GET /api/gateways`
+- Session table from `GET /api/sessions`
+- Handover table from `GET /api/handovers`
+- Manual handover action through `POST /api/handover/trigger`
 
-All mock data lives in `src/lib/api/mock.ts`. To connect the real Go backend:
+### `/security` - Devices
 
-1. Replace store update functions in `src/lib/stores/index.ts` with `fetch()` calls:
-   ```typescript
-   // Example: replace mock.updateGateways() with:
-   const res = await fetch('/api/gateways');
-   const data = await res.json();
-   gateways.set(data);
-   ```
+- Device registry from `GET /api/devices`
+- Device suspension through `POST /api/devices/{mac}/suspend`
+- Device revocation through `POST /api/devices/revoke`
 
-2. WebSocket for real-time updates:
-   ```typescript
-   const ws = new WebSocket('ws://localhost:8080/ws/telemetry');
-   ws.onmessage = (e) => {
-     const msg = JSON.parse(e.data);
-     if (msg.type === 'gateway_update') gateways.set(msg.data);
-     if (msg.type === 'handover_event') handoverHistory.update(h => [msg.data, ...h.slice(0,99)]);
-   };
-   ```
+## Backend Endpoints Used
 
-3. JWT auth header:
-   ```typescript
-   headers: { 'Authorization': `Bearer ${token}` }
-   ```
+| Method | Endpoint | Used for |
+|---|---|---|
+| `GET` | `/api/gateways` | Gateway list and map pins |
+| `GET` | `/api/sessions` | Session monitoring |
+| `GET` | `/api/satellites` | Satellite list and map positions |
+| `GET` | `/api/handovers` | Handover history |
+| `POST` | `/api/handover/trigger` | Manual handover demo action |
+| `GET` | `/api/telemetry/stream` | Server-sent telemetry refresh hint |
+| `GET` | `/api/devices` | Device registry |
+| `POST` | `/api/devices/{mac}/suspend` | Device suspension |
+| `POST` | `/api/devices/revoke` | Device revocation |
 
-## API Endpoints (from Core Network Go module)
+## Validation
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/gateways` | Gateway status list |
-| GET | `/api/sessions` | Active + historical sessions |
-| GET | `/api/handovers` | Recent handover events |
-| GET | `/api/devices` | Registered devices |
-| POST | `/api/devices/{mac}/revoke` | Admin revocation |
-| POST | `/api/devices/{mac}/suspend` | Admin suspension |
-| WS | `/ws/telemetry` | Real-time stream |
+```bash
+npm run check
+npm run build
+```
 
-## Success Criteria Checklist (P1)
+The backend should also pass:
 
-- [x] Dashboard overview with gateway status, session count, traffic, alerts
-- [x] Constellation map with animated satellite positions + gateway pins
-- [x] Live monitoring page with 4 chart types (area, line, bar)
-- [x] Session list with gateway filter + search + pagination
-- [x] Handover history (100 events, searchable, color-coded)
-- [x] Alert panel with resolve-in-place
-- [x] Real-time updates (1 Hz gateway, 5 Hz sessions via stores)
-- [x] Loads in <2 sec (Vite + SvelteKit SSR)
-- [x] Responsive (1024px+ tablet/desktop)
-- [x] Dark mode (default dark theme)
-
-## Success Criteria Checklist (P2)
-
-- [x] Device registry with suspend/revoke + confirmation 2FA flow
-- [x] CSV export for devices
-- [x] RBAC user management table + permissions matrix
-- [x] Admin audit log
-- [x] Suspicious activity flags
+```bash
+go test ./...
+```

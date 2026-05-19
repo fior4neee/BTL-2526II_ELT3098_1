@@ -2,11 +2,10 @@
   import '../app.css';
   import Sidebar from '$lib/components/Sidebar.svelte';
   import { onMount, onDestroy } from 'svelte';
-  import { startLiveUpdates, stopLiveUpdates, startTimeSeriesUpdates } from '$lib/stores';
+  import { startLiveUpdates, stopLiveUpdates } from '$lib/stores';
 
   onMount(() => {
-    startLiveUpdates(1000);
-    startTimeSeriesUpdates();
+    startLiveUpdates(5000);
   });
   onDestroy(() => stopLiveUpdates());
 </script>

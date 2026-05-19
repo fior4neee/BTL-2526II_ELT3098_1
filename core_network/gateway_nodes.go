@@ -43,6 +43,17 @@ func (p *GatewayPool) GetAllGateways() []Gateway {
 	return list
 }
 
+// GetGateway returns a single gateway by ID.
+func (p *GatewayPool) GetGateway(id string) (Gateway, bool) {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	g, ok := p.gateways[id]
+	if !ok {
+		return Gateway{}, false
+	}
+	return *g, true
+}
+
 // CalculateElevation performs core geometric calculations for link viability
 func (p *GatewayPool) CalculateElevation(gwID string, satLoc Location) (float64, float64, error) {
 	p.mu.RLock()

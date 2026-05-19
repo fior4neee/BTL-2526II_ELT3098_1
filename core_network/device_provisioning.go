@@ -3,11 +3,14 @@ package main
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -36,6 +39,51 @@ func NewProvisioningManager(settings SystemSettings) *ProvisioningManager {
 		secretSalt:   salt,
 		auditLogPath: settings.AuditLogPath,
 	}
+}
+
+// LoadDevicesFromFile seeds the in-memory registry from deployment data.
+func (pm *ProvisioningManager) LoadDevicesFromFile(path string) error {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+
+	var records []DeviceRecord
+	if err := json.Unmarshal(raw, &records); err != nil {
+		return err
+	}
+
+	pm.mu.Lock()
+	defer pm.mu.Unlock()
+	for i := range records {
+		record := records[i]
+		pm.devices[record.DeviceID] = &record
+	}
+	return nil
+}
+
+// ListDevices returns all known devices in stable order.
+func (pm *ProvisioningManager) ListDevices() []DeviceRecord {
+	pm.mu.RLock()
+	defer pm.mu.RUnlock()
+
+	devices := make([]DeviceRecord, 0, len(pm.devices))
+	for _, device := range pm.devices {
+		devices = append(devices, *device)
+	}
+	sort.Slice(devices, func(i, j int) bool {
+		return devices[i].DeviceID < devices[j].DeviceID
+	})
+	return devices
+}
+
+func (pm *ProvisioningManager) findByMACLocked(mac string) (*DeviceRecord, bool) {
+	for _, device := range pm.devices {
+		if strings.EqualFold(device.MACAddress, mac) {
+			return device, true
+		}
+	}
+	return nil, false
 }
 
 // logAudit writes connection and security events to the audit log file safely
@@ -107,6 +155,7 @@ func (pm *ProvisioningManager) RegisterHandler(c *gin.Context) {
 		DeviceID:          req.DeviceID,
 		MACAddress:        req.MAC,
 		HardwareID:        req.HWID,
+		Model:             req.Model,
 		Status:            DeviceRegistered,
 		ProvisioningToken: token,
 		RegisteredAt:      time.Now(),
@@ -140,10 +189,10 @@ func (pm *ProvisioningManager) VerifyHandler(c *gin.Context) {
 		return
 	}
 
-	// Reject if the device has been blacklisted by ISP
-	if device.Status == DeviceRevoked {
-		pm.logAudit(req.DeviceID, "VERIFY_DENIED", "Blacklisted device attempted access")
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Device is revoked/blacklisted"})
+	// Reject devices blocked by ISP operations.
+	if device.Status == DeviceRevoked || device.Status == DeviceSuspended {
+		pm.logAudit(req.DeviceID, "VERIFY_DENIED", fmt.Sprintf("Blocked device attempted access with status %s", device.Status))
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Device is suspended or revoked"})
 		return
 	}
 
@@ -191,5 +240,42 @@ func (pm *ProvisioningManager) RevokeHandler(c *gin.Context) {
 		"device_id": device.DeviceID,
 		"status":    device.Status,
 		"timestamp": now.Format(time.RFC3339),
+	})
+}
+
+// ListHandler processes GET /api/devices
+func (pm *ProvisioningManager) ListHandler(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{"devices": pm.ListDevices()})
+}
+
+// SuspendByMACHandler processes POST /api/devices/{mac}/suspend
+func (pm *ProvisioningManager) SuspendByMACHandler(c *gin.Context) {
+	mac := c.Param("mac")
+	if !IsValidMAC(mac) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid MAC address format"})
+		return
+	}
+
+	pm.mu.Lock()
+	defer pm.mu.Unlock()
+
+	device, exists := pm.findByMACLocked(mac)
+	if !exists {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Device not found"})
+		return
+	}
+	if device.Status == DeviceRevoked {
+		c.JSON(http.StatusConflict, gin.H{"error": "Revoked device cannot be suspended"})
+		return
+	}
+
+	device.Status = DeviceSuspended
+	pm.logAudit(device.DeviceID, "SUSPENDED", "Suspended by admin")
+
+	c.JSON(http.StatusOK, gin.H{
+		"device_id": device.DeviceID,
+		"mac":       device.MACAddress,
+		"status":    device.Status,
+		"timestamp": time.Now().Format(time.RFC3339),
 	})
 }

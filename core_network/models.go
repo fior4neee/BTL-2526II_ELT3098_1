@@ -6,6 +6,7 @@ import "time"
 type DeployConfig struct {
 	AppPort            string `json:"app_port"`
 	GatewayDataPath    string `json:"gateway_data_path"`
+	DeviceDataPath     string `json:"device_data_path"`
 	SystemSettingsPath string `json:"settings_path"`
 }
 
@@ -66,6 +67,24 @@ type Session struct {
 	StartTime        time.Time    `json:"start_time"`
 }
 
+// HandoverEvent represents a completed gateway transition
+type HandoverEvent struct {
+	ID          string    `json:"id"`
+	Timestamp   time.Time `json:"timestamp"`
+	SessionID   string    `json:"session_id"`
+	FromGateway string    `json:"from_gateway"`
+	ToGateway   string    `json:"to_gateway"`
+	DurationMs  int       `json:"duration_ms"`
+	PacketLoss  float64   `json:"packet_loss"`
+	Success     bool      `json:"success"`
+}
+
+// TriggerHandoverReq represents POST /api/handover/trigger
+type TriggerHandoverReq struct {
+	SessionID       string `json:"session_id" binding:"required"`
+	TargetGatewayID string `json:"target_gateway_id" binding:"required"`
+}
+
 // TelemetryEvent for real-time monitoring broadcasting
 type TelemetryEvent struct {
 	Timestamp   time.Time   `json:"timestamp"`
@@ -83,6 +102,7 @@ type DeviceStatus string
 const (
 	DeviceRegistered DeviceStatus = "registered"
 	DeviceActive     DeviceStatus = "active"
+	DeviceSuspended  DeviceStatus = "suspended"
 	DeviceRevoked    DeviceStatus = "revoked"
 )
 
@@ -91,6 +111,7 @@ type DeviceRecord struct {
 	DeviceID          string       `json:"device_id"`
 	MACAddress        string       `json:"mac"`
 	HardwareID        string       `json:"hw_id"`
+	Model             string       `json:"model,omitempty"`
 	Status            DeviceStatus `json:"status"`
 	ProvisioningToken string       `json:"provisioning_token"`
 	RegisteredAt      time.Time    `json:"registered_at"`

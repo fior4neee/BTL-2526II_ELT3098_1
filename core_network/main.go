@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"log"
-	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -12,7 +12,6 @@ import (
 func main() {
 	log.Println("--- Starting VNU-LEO Core Network ---")
 
-	// 1. Load Deployment Settings (The Entry Point)
 	deployPath := "data/deploy_setting.json"
 	deployRaw, err := ioutil.ReadFile(deployPath)
 	if err != nil {
@@ -23,8 +22,10 @@ func main() {
 	if err := json.Unmarshal(deployRaw, &deployConfig); err != nil {
 		log.Fatalf("Critical: Failed to parse deploy JSON: %v\n", err)
 	}
+	if deployConfig.DeviceDataPath == "" {
+		deployConfig.DeviceDataPath = "data/devices.json"
+	}
 
-	// 2. Load System Settings (Physics & Logic params)
 	log.Printf("Loading system settings from: %s\n", deployConfig.SystemSettingsPath)
 	systemRaw, err := ioutil.ReadFile(deployConfig.SystemSettingsPath)
 	if err != nil {
@@ -36,13 +37,15 @@ func main() {
 		log.Fatalf("Critical: Failed to parse system settings JSON: %v\n", err)
 	}
 
-	// Khởi tạo Module chống giả mạo thiết bị
 	provisioningManager := NewProvisioningManager(systemSettings)
+	if err := provisioningManager.LoadDevicesFromFile(deployConfig.DeviceDataPath); err != nil {
+		log.Printf("Warning: could not load device registry from %s: %v\n", deployConfig.DeviceDataPath, err)
+	} else {
+		log.Printf("Successfully loaded %d device records.\n", len(provisioningManager.ListDevices()))
+	}
 
-	// 3. Initialize Gateway Pool with System Settings
 	gatewayPool := NewGatewayPool(systemSettings)
 
-	// 4. Load Gateway Data from the path specified in deployConfig
 	log.Printf("Loading gateway data from: %s\n", deployConfig.GatewayDataPath)
 	gatewayDataRaw, err := ioutil.ReadFile(deployConfig.GatewayDataPath)
 	if err != nil {
@@ -60,15 +63,31 @@ func main() {
 	}
 	log.Printf("Successfully initialized %d gateways.\n", len(gateways))
 
-	// 5. Initialize Handover Manager
 	handoverManager := NewHandoverManager(gatewayPool, systemSettings)
 	log.Println("Handover Manager is online.")
+	ephemerisStore := NewEphemerisStore()
 
-	// 6. REST API Setup
+	// Background reconciler: if no ephemeris updates are received for a threshold,
+	// clear all sessions to ensure gateway session counters return to 0 when
+	// orbit_calc/ephemeris publisher and simulators are stopped.
+	go func() {
+		ticker := time.NewTicker(10 * time.Second)
+		defer ticker.Stop()
+		staleThreshold := 30 * time.Second
+		for range ticker.C {
+			last := ephemerisStore.LastUpdate()
+			if last.IsZero() || time.Since(last) > staleThreshold {
+				cleared := handoverManager.ClearAllSessions()
+				if cleared > 0 {
+					log.Printf("Reconciler: cleared %d sessions due to stale ephemeris (last update: %v)", cleared, last)
+				}
+			}
+		}
+	}()
+
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.Default()
 
-	// Add CORS middleware
 	router.Use(func(c *gin.Context) {
 		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
 		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
@@ -81,57 +100,8 @@ func main() {
 		c.Next()
 	})
 
-	v1 := router.Group("/api/v1")
-	{
-		v1.GET("/health", func(c *gin.Context) {
-			c.JSON(http.StatusOK, gin.H{
-				"status":    "ok",
-				"satellite": systemSettings.DefaultSatelliteID,
-				"port":      deployConfig.AppPort,
-			})
-		})
+	registerAPIRoutes(router, gatewayPool, handoverManager, provisioningManager, ephemerisStore, systemSettings, deployConfig)
 
-		v1.GET("/gateways", func(c *gin.Context) {
-			c.JSON(http.StatusOK, gin.H{"data": gatewayPool.GetAllGateways()})
-		})
-
-		v1.GET("/sessions", func(c *gin.Context) {
-			c.JSON(http.StatusOK, gin.H{"data": handoverManager.GetActiveSessions()})
-		})
-
-		v1.POST("/router/connect", func(c *gin.Context) {
-			var req struct {
-				MAC string `json:"router_mac" binding:"required"`
-			}
-			if err := c.ShouldBindJSON(&req); err != nil {
-				c.JSON(http.StatusBadRequest, gin.H{"error": "invalid payload"})
-				return
-			}
-			sess, err := handoverManager.HandleRouterConnect(req.MAC)
-			if err != nil {
-				c.JSON(http.StatusServiceUnavailable, gin.H{"error": err.Error()})
-				return
-			}
-			c.JSON(http.StatusOK, gin.H{"session": sess})
-		})
-
-		v1.POST("/ephemeris/update", func(c *gin.Context) {
-			var update EphemerisUpdate
-			if err := c.ShouldBindJSON(&update); err != nil {
-				c.JSON(http.StatusBadRequest, gin.H{"error": "invalid ephemeris data"})
-				return
-			}
-			log.Printf("Received ephemeris update: %d satellite records\n", len(update.Data))
-			c.JSON(http.StatusOK, gin.H{"status": "ephemeris updated", "count": len(update.Data)})
-		})
-
-		// ROUTE DEVICE PROVISIONING (Chuyển vào trong block v1 cho đúng cấu trúc)
-		v1.POST("/devices/register", provisioningManager.RegisterHandler)
-		v1.POST("/devices/verify", provisioningManager.VerifyHandler)
-		v1.POST("/devices/revoke", provisioningManager.RevokeHandler)
-	}
-
-	// 7. Start the Server using the port from deployConfig
 	fullPort := ":" + deployConfig.AppPort
 	log.Printf("VNU-LEO Core API listening on %s\n", fullPort)
 	if err := router.Run(fullPort); err != nil {
