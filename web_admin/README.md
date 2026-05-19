@@ -1,14 +1,14 @@
 # web_admin — VNU-LEO ISP Admin Dashboard
 
 **Technology**: SvelteKit 2.x + TailwindCSS 3.x + DaisyUI 4.x + Chart.js  
-**Phase**: P1 (Core Monitoring) + P2 (Security & Billing)  
+**Phase**: P1 (Core Monitoring) + P2 (Security & Provisioning)  
 **Owner**: Frontend/DevOps Team
 
 ---
 
 ## Overview
 
-Real-time ISP operator dashboard for the VNU-LEO satellite constellation. Provides live monitoring of gateways, sessions, handover events, device provisioning, and billing.
+Real-time ISP operator dashboard for the VNU-LEO satellite constellation. Provides live monitoring of gateways, sessions, handover events, device provisioning, and security operations.
 
 ## Project Structure
 
@@ -35,7 +35,7 @@ web_admin/
 │       ├── monitoring/
 │       │   └── +page.svelte        Detailed monitoring: charts, sessions, handovers (P1)
 │       └── security/
-│           └── +page.svelte        Security, device registry, billing, RBAC (P2)
+│           └── +page.svelte        Security, device registry, RBAC (P2)
 ├── static/
 │   └── favicon.svg
 ├── package.json
@@ -76,9 +76,8 @@ npm run preview
 - Session list with filtering + pagination (1 Hz updates)
 - Handover history table (last 100, searchable)
 
-### `/security` — Security & Billing (P2)
+### `/security` — Security (P2)
 - **Device Registry**: registered devices, suspend/revoke with confirmation dialog, CSV export
-- **Billing Events**: subscription breakdown, top users, geo-fence event log, billing export
 - **Security Alerts**: all alerts, resolve button, suspicious activity, admin audit log
 - **Admin RBAC**: user list, role permissions matrix, disable/enable accounts
 
@@ -119,7 +118,6 @@ All mock data lives in `src/lib/api/mock.ts`. To connect the real Go backend:
 | GET | `/api/devices` | Registered devices |
 | POST | `/api/devices/{mac}/revoke` | Admin revocation |
 | POST | `/api/devices/{mac}/suspend` | Admin suspension |
-| GET | `/api/billing/report?from=T0&to=T1` | Billing data |
 | WS | `/ws/telemetry` | Real-time stream |
 
 ## Success Criteria Checklist (P1)
@@ -138,9 +136,7 @@ All mock data lives in `src/lib/api/mock.ts`. To connect the real Go backend:
 ## Success Criteria Checklist (P2)
 
 - [x] Device registry with suspend/revoke + confirmation 2FA flow
-- [x] CSV export for devices and billing reports
-- [x] Geo-fence event log
-- [x] Billing events table
+- [x] CSV export for devices
 - [x] RBAC user management table + permissions matrix
 - [x] Admin audit log
 - [x] Suspicious activity flags

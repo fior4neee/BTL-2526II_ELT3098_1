@@ -1,12 +1,12 @@
 <script lang="ts">
   import Topbar from '$lib/components/Topbar.svelte';
   import { alerts } from '$lib/stores';
-  import { devices, billingEvents } from '$lib/api/mock';
+  import { devices } from '$lib/api/mock';
   import type { Device, DeviceStatus } from '$lib/types';
 
   let deviceSearch = '';
   let statusFilter: DeviceStatus | 'all' = 'all';
-  let activeTab: 'devices' | 'billing' | 'alerts' | 'rbac' = 'devices';
+  let activeTab: 'devices' | 'alerts' | 'rbac' = 'devices';
   let confirmRevoke: string | null = null;
   let exportMsg = '';
 
@@ -52,24 +52,11 @@
     setTimeout(() => exportMsg = '', 2000);
   }
 
-  function exportBillingCSV() {
-    const rows = [
-      ['ID', 'MAC', 'Owner', 'Tier', 'Event', 'Timestamp', 'Data (GB)', 'Cost ($)'],
-      ...billingEvents.map(b => [b.id, b.deviceMac, b.owner, b.tier, b.eventType, new Date(b.timestamp).toLocaleString(), b.dataGb ?? '', b.cost ?? ''])
-    ];
-    const csv = rows.map(r => r.join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url; a.download = 'billing_report.csv'; a.click();
-    URL.revokeObjectURL(url);
-  }
-
   const tierCounts = {
     Fixed: devices.filter(d => d.tier === 'Fixed').length,
     Mobile: devices.filter(d => d.tier === 'Mobile').length,
     Trial: devices.filter(d => d.tier === 'Trial').length,
   };
-  const topUsers = [...devices].sort((a, b) => b.dataUsedGb - a.dataUsedGb).slice(0, 5);
 
   function statusBadge(s: DeviceStatus) {
     if (s === 'active') return 'badge-online';
@@ -88,12 +75,11 @@
   const adminUsers = [
     { id: 'u-001', username: 'admin', email: 'admin@vnu.edu.vn', role: 'Super Admin', lastLogin: new Date(Date.now() - 300000), active: true },
     { id: 'u-002', username: 'operator1', email: 'op1@vnu.edu.vn', role: 'Network Operator', lastLogin: new Date(Date.now() - 3600000), active: true },
-    { id: 'u-003', username: 'billing1', email: 'billing@vnu.edu.vn', role: 'Billing Manager', lastLogin: new Date(Date.now() - 86400000), active: true },
-    { id: 'u-004', username: 'oldop', email: 'oldop@vnu.edu.vn', role: 'Network Operator', lastLogin: new Date(Date.now() - 7 * 86400000), active: false },
+    { id: 'u-003', username: 'oldop', email: 'oldop@vnu.edu.vn', role: 'Network Operator', lastLogin: new Date(Date.now() - 7 * 86400000), active: false },
   ];
 </script>
 
-<Topbar title="SECURITY & BILLING" subtitle="Device registry · provisioning · billing events · RBAC" />
+<Topbar title="SECURITY" subtitle="Device registry · provisioning · RBAC" />
 
 <main class="flex-1 overflow-y-auto p-6 space-y-5">
 
@@ -119,7 +105,7 @@
 
   <!-- Tabs -->
   <div class="flex gap-1 border-b border-slate-800/60 pb-0">
-    {#each [['devices','Device Registry'],['billing','Billing Events'],['alerts','Security Alerts'],['rbac','Admin RBAC']] as [tab, label]}
+    {#each [['devices','Device Registry'],['alerts','Security Alerts'],['rbac','Admin RBAC']] as [tab, label]}
       <button
         on:click={() => activeTab = tab as typeof activeTab}
         class="px-4 py-2 font-mono text-xs tracking-wide transition-colors border-b-2
@@ -230,101 +216,6 @@
       </div>
     {/if}
 
-  <!-- ── Billing Events ── -->
-  {:else if activeTab === 'billing'}
-    <div class="grid grid-cols-1 xl:grid-cols-3 gap-4">
-      <!-- Top users -->
-      <div class="chart-container">
-        <div class="font-mono text-xs text-slate-500 mb-3 tracking-widest">TOP USERS BY DATA (GB)</div>
-        <div class="space-y-2">
-          {#each topUsers as u, i}
-            <div class="flex items-center gap-3">
-              <span class="font-mono text-xs text-slate-600 w-4">{i+1}</span>
-              <div class="flex-1">
-                <div class="flex justify-between mb-1">
-                  <span class="font-sans text-xs text-slate-300">{u.owner}</span>
-                  <span class="font-mono text-xs text-cyan-400">{u.dataUsedGb.toFixed(1)}</span>
-                </div>
-                <div class="h-1 bg-slate-800 rounded-full">
-                  <div class="h-full rounded-full bg-cyan-400/60" style="width: {Math.min(100, u.dataUsedGb / topUsers[0].dataUsedGb * 100)}%"></div>
-                </div>
-              </div>
-            </div>
-          {/each}
-        </div>
-      </div>
-
-      <!-- Tier breakdown -->
-      <div class="chart-container">
-        <div class="font-mono text-xs text-slate-500 mb-3 tracking-widest">SUBSCRIPTION BREAKDOWN</div>
-        <div class="space-y-3">
-          {#each [['Fixed', tierCounts.Fixed, 'text-amber-400', 'bg-amber-400'], ['Mobile', tierCounts.Mobile, 'text-cyan-400', 'bg-cyan-400'], ['Trial', tierCounts.Trial, 'text-emerald-400', 'bg-emerald-400']] as [tier, count, textc, bgc]}
-            <div>
-              <div class="flex justify-between mb-1">
-                <span class="font-mono text-xs {textc}">{tier}</span>
-                <span class="font-mono text-xs text-slate-400">{count} devices</span>
-              </div>
-              <div class="h-1.5 bg-slate-800 rounded-full">
-                <div class="h-full rounded-full {bgc} opacity-60" style="width: {count / devices.length * 100}%"></div>
-              </div>
-            </div>
-          {/each}
-        </div>
-      </div>
-
-      <!-- Geo-fence events -->
-      <div class="chart-container">
-        <div class="font-mono text-xs text-slate-500 mb-3 tracking-widest">GEO-FENCE EVENTS</div>
-        <div class="space-y-2">
-          {#each billingEvents.filter(b => b.eventType === 'geofence_breach') as evt}
-            <div class="p-2 rounded bg-rose-400/5 border border-rose-400/15">
-              <div class="font-mono text-xs text-rose-400">BREACH DETECTED</div>
-              <div class="font-sans text-xs text-slate-400 mt-0.5">{evt.owner}</div>
-              <div class="font-mono text-xs text-slate-600">{evt.deviceMac} · cost ${evt.cost?.toFixed(2)}</div>
-            </div>
-          {/each}
-          {#if billingEvents.filter(b => b.eventType === 'geofence_breach').length === 0}
-            <div class="py-4 text-center font-mono text-xs text-slate-600">NO BREACHES</div>
-          {/if}
-        </div>
-      </div>
-    </div>
-
-    <!-- Billing events table -->
-    <div class="chart-container">
-      <div class="flex items-center justify-between mb-3">
-        <div class="font-mono text-xs text-slate-500 tracking-widest">BILLING EVENT LOG</div>
-        <button on:click={exportBillingCSV} class="px-3 py-1 font-mono text-xs bg-cyan-400/10 border border-cyan-400/20 text-cyan-400 rounded hover:bg-cyan-400/20 transition-colors">
-          EXPORT CSV
-        </button>
-      </div>
-      <div class="overflow-x-auto">
-        <table class="data-table">
-          <thead>
-            <tr><th>Event ID</th><th>MAC</th><th>Owner</th><th>Tier</th><th>Type</th><th>Timestamp</th><th>Data (GB)</th><th>Cost ($)</th></tr>
-          </thead>
-          <tbody>
-            {#each billingEvents as b (b.id)}
-              <tr>
-                <td class="text-cyan-400">{b.id}</td>
-                <td class="text-slate-500">{b.deviceMac}</td>
-                <td class="text-slate-300">{b.owner}</td>
-                <td class="text-slate-500">{b.tier}</td>
-                <td>
-                  <span class="font-mono text-xs {b.eventType === 'geofence_breach' ? 'text-rose-400' : b.eventType === 'usage' ? 'text-cyan-400' : 'text-slate-500'}">
-                    {b.eventType.replace('_', ' ').toUpperCase()}
-                  </span>
-                </td>
-                <td class="text-slate-500 whitespace-nowrap">{relTime(b.timestamp)}</td>
-                <td class="text-slate-400">{b.dataGb?.toFixed(2) ?? '—'}</td>
-                <td class="text-slate-400">{b.cost != null ? b.cost.toFixed(2) : '—'}</td>
-              </tr>
-            {/each}
-          </tbody>
-        </table>
-      </div>
-    </div>
-
   <!-- ── Security Alerts ── -->
   {:else if activeTab === 'alerts'}
     <div class="chart-container">
@@ -375,7 +266,7 @@
         <div class="space-y-1.5">
           {#each [
             { action: 'Device BA:DC:AF:E0:01:23 revoked', user: 'admin', time: '2h ago' },
-            { action: 'Billing report generated (May 2025)', user: 'billing1', time: '3h ago' },
+            { action: 'Device export generated (May 2025)', user: 'admin', time: '3h ago' },
             { action: 'Device 12:34:56:78:9A:BC suspended', user: 'admin', time: '5h ago' },
             { action: 'Admin login from 192.168.1.100', user: 'operator1', time: '8h ago' },
           ] as entry}
@@ -439,24 +330,21 @@
             <th>Permission</th>
             <th class="text-rose-400">Super Admin</th>
             <th class="text-cyan-400">Net. Operator</th>
-            <th class="text-amber-400">Billing Mgr</th>
           </tr>
         </thead>
         <tbody>
           {#each [
-            ['View Overview Dashboard', true, true, true],
-            ['View Monitoring', true, true, false],
-            ['View Security/Billing', true, false, true],
-            ['Revoke Devices', true, false, false],
-            ['Manage Admin Users', true, false, false],
-            ['Export Billing Reports', true, false, true],
-            ['Modify Gateway Config', true, true, false],
-          ] as [perm, sa, op, bm]}
+            ['View Overview Dashboard', true, true],
+            ['View Monitoring', true, true],
+            ['View Security', true, false],
+            ['Revoke Devices', true, false],
+            ['Manage Admin Users', true, false],
+            ['Modify Gateway Config', true, true],
+          ] as [perm, sa, op]}
             <tr>
               <td class="text-slate-400">{perm}</td>
               <td class="text-center">{sa ? '✓' : '—'}</td>
               <td class="text-center {op ? 'text-emerald-400' : 'text-slate-700'}">{op ? '✓' : '—'}</td>
-              <td class="text-center {bm ? 'text-emerald-400' : 'text-slate-700'}">{bm ? '✓' : '—'}</td>
             </tr>
           {/each}
         </tbody>

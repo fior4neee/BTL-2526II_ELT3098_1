@@ -15,7 +15,7 @@
 - [ ] High-level ISP operation view:
   - Network status: # gateways online/offline, # active sessions, # active satellites
   - Top metrics: total traffic volume (last hour/day), average handover duration, packet loss %
-  - Alert panel: critical issues (gateway down, excessive handovers, billing anomalies)
+  - Alert panel: critical issues (gateway down, excessive handovers, security anomalies)
 - [ ] Live sat constellation view:
   - Map showing 3 gateways (Hanoi, Danang, HCMC) as pins
   - Animated satellite positions (if real-time ephemeris available)
@@ -48,7 +48,7 @@
 
 ## Phase 2 Enhancements (Optional)
 
-### 3. **security/+page.svelte (Device Verification & Billing)**
+### 3. **security/+page.svelte (Device Verification & Security)**
 - [ ] Device registry:
   - Table of registered routers: MAC, Hardware ID, Model, Owner, Registration Date, Status (active/suspended/revoked)
   - Search by MAC or hardware ID
@@ -59,11 +59,10 @@
   - Geo-fence breaches (if location available from clients)
   - Rapid MAC/Hardware ID changes (spoofing attempt indicator)
   - Display alert history with timestamps
-- [ ] Billing events:
+-- [ ] Security operations:
   - Subscription tier summary: # Fixed, # Mobile, # trial
-  - Usage dashboard: top 10 users by data volume, cost-per-user
+  - Usage dashboard: top 10 users by data volume
   - Geo-fence event log (if enabled): all instances of Fixed customers moving out-of-bounds
-  - Data export: generate billing report (CSV/JSON) for period
 
 ### 4. **API Integration**
 - [ ] Connect to core_network Go backend (REST endpoints):
@@ -72,7 +71,6 @@
   - `GET /api/handovers` → recent handover events
   - `GET /api/devices` → registered devices + verification status
   - `POST /api/devices/{mac}/revoke` → admin revocation action
-  - `GET /api/billing/report?from=T0&to=T1` → billing data for period
 - [ ] WebSocket for real-time updates (gateway telemetry, session events, alerts)
 - [ ] Authentication: JWT token (issued by core_network, validated by SvelteKit)
 
@@ -80,7 +78,6 @@
 - [ ] Role-based access control (RBAC):
   - Super Admin: full dashboard + security actions
   - Network Operator: read-only monitoring
-  - Billing Manager: security + billing pages only
 - [ ] User list: create/edit/disable admin accounts
 - [ ] Session audit log: track all admin actions (logins, revocations, configuration changes)
 
