@@ -1,467 +1,291 @@
 <script lang="ts">
   import Topbar from '$lib/components/Topbar.svelte';
-  import { alerts } from '$lib/stores';
-  import { devices, billingEvents } from '$lib/api/mock';
-  import type { Device, DeviceStatus } from '$lib/types';
+  import { onMount } from 'svelte';
+  import {
+    devices,
+    lastError,
+    refreshDevices,
+    revokeDeviceByMac,
+    securityAlerts,
+    suspendDeviceByMac,
+  } from '$lib/stores';
+  import type { Device, DeviceStatus, SecurityAlert } from '$lib/types';
+
+  const devicesEnabled = import.meta.env.VITE_ENABLE_DEVICES === 'true';
 
   let deviceSearch = '';
   let statusFilter: DeviceStatus | 'all' = 'all';
-  let activeTab: 'devices' | 'billing' | 'alerts' | 'rbac' = 'devices';
-  let confirmRevoke: string | null = null;
-  let exportMsg = '';
+  let confirmRevoke: Device | null = null;
+  let actionMessage = '';
+  let actionError = '';
+  let page = 0;
+  const PAGE_SIZE = 15;
+  let sortKey: keyof Device = 'registeredAt';
+  let sortDir: 'asc' | 'desc' = 'desc';
 
-  $: filteredDevices = devices.filter(d => {
-    const matchStatus = statusFilter === 'all' || d.status === statusFilter;
-    const matchSearch = !deviceSearch ||
-      d.mac.toLowerCase().includes(deviceSearch.toLowerCase()) ||
-      d.owner.toLowerCase().includes(deviceSearch.toLowerCase()) ||
-      d.hardwareId.toLowerCase().includes(deviceSearch.toLowerCase());
-    return matchStatus && matchSearch;
+  $: filteredDevices = $devices.filter((device) => {
+    const statusMatch = statusFilter === 'all' || device.status === statusFilter;
+    const search = deviceSearch.trim().toLowerCase();
+    const searchMatch =
+      !search ||
+      device.deviceId.toLowerCase().includes(search) ||
+      device.mac.toLowerCase().includes(search) ||
+      device.hardwareId.toLowerCase().includes(search);
+    return statusMatch && searchMatch;
   });
 
-  let deviceList = [...devices];
+  $: sortedDevices = [...filteredDevices].sort((a, b) => {
+    const dir = sortDir === 'asc' ? 1 : -1;
+    const av = a[sortKey];
+    const bv = b[sortKey];
+    if (av instanceof Date && bv instanceof Date) return (av.getTime() - bv.getTime()) * dir;
+    return String(av ?? '').localeCompare(String(bv ?? '')) * dir;
+  });
 
-  function revokeDevice(mac: string) {
-    deviceList = deviceList.map(d => d.mac === mac ? { ...d, status: 'revoked' as DeviceStatus } : d);
-    confirmRevoke = null;
-    alerts.update(list => [{
-      id: `a-${Date.now()}`,
-      severity: 'info',
-      message: `Device ${mac} revoked by admin`,
-      timestamp: new Date(),
-      resolved: false,
-      category: 'security',
-    }, ...list]);
-  }
+  $: pagedDevices = sortedDevices.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+  $: totalPages = Math.max(1, Math.ceil(sortedDevices.length / PAGE_SIZE));
 
-  function suspendDevice(mac: string) {
-    deviceList = deviceList.map(d => d.mac === mac ? { ...d, status: 'suspended' as DeviceStatus } : d);
-  }
+  onMount(() => {
+    if (devicesEnabled) {
+      void refreshDevices();
+    }
+  });
 
-  function exportCSV() {
-    const rows = [
-      ['MAC', 'Hardware ID', 'Model', 'Owner', 'Status', 'Tier', 'Data Used (GB)', 'Registered'],
-      ...deviceList.map(d => [d.mac, d.hardwareId, d.model, d.owner, d.status, d.tier, d.dataUsedGb, new Date(d.registeredAt).toLocaleDateString()])
-    ];
-    const csv = rows.map(r => r.join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url; a.download = 'devices.csv'; a.click();
-    URL.revokeObjectURL(url);
-    exportMsg = 'Exported!';
-    setTimeout(() => exportMsg = '', 2000);
-  }
-
-  function exportBillingCSV() {
-    const rows = [
-      ['ID', 'MAC', 'Owner', 'Tier', 'Event', 'Timestamp', 'Data (GB)', 'Cost ($)'],
-      ...billingEvents.map(b => [b.id, b.deviceMac, b.owner, b.tier, b.eventType, new Date(b.timestamp).toLocaleString(), b.dataGb ?? '', b.cost ?? ''])
-    ];
-    const csv = rows.map(r => r.join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url; a.download = 'billing_report.csv'; a.click();
-    URL.revokeObjectURL(url);
-  }
-
-  const tierCounts = {
-    Fixed: devices.filter(d => d.tier === 'Fixed').length,
-    Mobile: devices.filter(d => d.tier === 'Mobile').length,
-    Trial: devices.filter(d => d.tier === 'Trial').length,
-  };
-  const topUsers = [...devices].sort((a, b) => b.dataUsedGb - a.dataUsedGb).slice(0, 5);
-
-  function statusBadge(s: DeviceStatus) {
-    if (s === 'active') return 'badge-online';
-    if (s === 'suspended') return 'badge-warning';
+  function statusBadge(status: DeviceStatus) {
+    if (status === 'active') return 'badge-online';
+    if (status === 'registered' || status === 'suspended') return 'badge-warning';
     return 'badge-offline';
   }
 
-  function relTime(d: Date): string {
-    const mins = Math.floor((Date.now() - new Date(d).getTime()) / 60000);
+  function relTime(date: Date): string {
+    const mins = Math.floor((Date.now() - date.getTime()) / 60000);
     if (mins < 1) return 'just now';
     if (mins < 60) return `${mins}m ago`;
-    if (mins < 1440) return `${Math.floor(mins/60)}h ago`;
-    return `${Math.floor(mins/1440)}d ago`;
+    if (mins < 1440) return `${Math.floor(mins / 60)}h ago`;
+    return `${Math.floor(mins / 1440)}d ago`;
   }
 
-  const adminUsers = [
-    { id: 'u-001', username: 'admin', email: 'admin@vnu.edu.vn', role: 'Super Admin', lastLogin: new Date(Date.now() - 300000), active: true },
-    { id: 'u-002', username: 'operator1', email: 'op1@vnu.edu.vn', role: 'Network Operator', lastLogin: new Date(Date.now() - 3600000), active: true },
-    { id: 'u-003', username: 'billing1', email: 'billing@vnu.edu.vn', role: 'Billing Manager', lastLogin: new Date(Date.now() - 86400000), active: true },
-    { id: 'u-004', username: 'oldop', email: 'oldop@vnu.edu.vn', role: 'Network Operator', lastLogin: new Date(Date.now() - 7 * 86400000), active: false },
-  ];
+  function toggleSort(key: keyof Device) {
+    if (sortKey === key) {
+      sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+    } else {
+      sortKey = key;
+      sortDir = 'asc';
+    }
+  }
+
+  async function suspendDevice(device: Device) {
+    if (!devicesEnabled) {
+      actionError = 'Devices endpoint is disabled';
+      return;
+    }
+    actionMessage = '';
+    actionError = '';
+    try {
+      await suspendDeviceByMac(device.mac);
+      actionMessage = `Device ${device.mac} suspended`;
+    } catch (err) {
+      actionError = err instanceof Error ? err.message : 'Device suspend failed';
+    }
+  }
+
+  async function revokeDevice(device: Device) {
+    if (!devicesEnabled) {
+      actionError = 'Devices endpoint is disabled';
+      return;
+    }
+    actionMessage = '';
+    actionError = '';
+    try {
+      await revokeDeviceByMac(device.mac);
+      actionMessage = `Device ${device.mac} revoked`;
+      confirmRevoke = null;
+    } catch (err) {
+      actionError = err instanceof Error ? err.message : 'Device revoke failed';
+    }
+  }
+
+  function severityBadge(alert: SecurityAlert) {
+    if (alert.severity === 'high') return 'badge-offline';
+    if (alert.severity === 'medium') return 'badge-warning';
+    return 'badge-online';
+  }
 </script>
 
-<Topbar title="SECURITY & BILLING" subtitle="Device registry · provisioning · billing events · RBAC" />
+<Topbar title="SECURITY" subtitle="Device registry and security controls" />
 
 <main class="flex-1 overflow-y-auto p-6 space-y-5">
-
-  <!-- Summary Cards -->
-  <div class="grid grid-cols-2 xl:grid-cols-4 gap-3">
-    <div class="stat-card">
-      <div class="font-mono text-xs text-slate-500 tracking-widest mb-2">FIXED SUBSCRIBERS</div>
-      <div class="font-display text-2xl text-amber-400">{tierCounts.Fixed}</div>
+  {#if $lastError}
+    <div class="rounded border border-rose-400/30 bg-rose-400/8 px-4 py-3 font-mono text-xs text-rose-300">
+      API refresh failed: {$lastError}
     </div>
-    <div class="stat-card">
-      <div class="font-mono text-xs text-slate-500 tracking-widest mb-2">MOBILE SUBSCRIBERS</div>
-      <div class="font-display text-2xl text-cyan-400">{tierCounts.Mobile}</div>
+  {/if}
+  {#if actionMessage}
+    <div class="rounded border border-emerald-400/30 bg-emerald-400/8 px-4 py-3 font-mono text-xs text-emerald-300">
+      {actionMessage}
     </div>
-    <div class="stat-card">
-      <div class="font-mono text-xs text-slate-500 tracking-widest mb-2">TRIAL ACCOUNTS</div>
-      <div class="font-display text-2xl text-emerald-400">{tierCounts.Trial}</div>
+  {/if}
+  {#if actionError}
+    <div class="rounded border border-rose-400/30 bg-rose-400/8 px-4 py-3 font-mono text-xs text-rose-300">
+      {actionError}
     </div>
-    <div class="stat-card">
-      <div class="font-mono text-xs text-slate-500 tracking-widest mb-2">ACTIVE ALERTS</div>
-      <div class="font-display text-2xl text-rose-400">{$alerts.filter(a => !a.resolved).length}</div>
+  {/if}
+  {#if !devicesEnabled}
+    <div class="rounded border border-amber-400/30 bg-amber-400/8 px-4 py-3 font-mono text-xs text-amber-300">
+      Devices endpoint is disabled. Set VITE_ENABLE_DEVICES=true to enable device registry calls.
     </div>
-  </div>
+  {/if}
 
-  <!-- Tabs -->
-  <div class="flex gap-1 border-b border-slate-800/60 pb-0">
-    {#each [['devices','Device Registry'],['billing','Billing Events'],['alerts','Security Alerts'],['rbac','Admin RBAC']] as [tab, label]}
-      <button
-        on:click={() => activeTab = tab as typeof activeTab}
-        class="px-4 py-2 font-mono text-xs tracking-wide transition-colors border-b-2
-          {activeTab === tab
-            ? 'text-cyan-400 border-cyan-400'
-            : 'text-slate-500 border-transparent hover:text-slate-300'}"
-      >
-        {label}
-      </button>
-    {/each}
-  </div>
-
-  <!-- ── Device Registry ── -->
-  {#if activeTab === 'devices'}
-    <div class="chart-container">
-      <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
-        <div class="font-mono text-xs text-slate-500 tracking-widest">REGISTERED DEVICES ({filteredDevices.length})</div>
-        <div class="flex gap-2 flex-wrap">
-          <input
-            bind:value={deviceSearch}
-            placeholder="Search MAC / owner / HW ID..."
-            class="bg-space-900 border border-slate-700/50 rounded px-3 py-1 text-xs font-mono text-slate-300 placeholder-slate-600 focus:outline-none focus:border-cyan-400/40 w-52"
-          />
-          <select
-            bind:value={statusFilter}
-            class="bg-space-900 border border-slate-700/50 rounded px-2 py-1 text-xs font-mono text-slate-300 focus:outline-none focus:border-cyan-400/40"
-          >
-            <option value="all">All status</option>
-            <option value="active">Active</option>
-            <option value="suspended">Suspended</option>
-            <option value="revoked">Revoked</option>
-          </select>
-          <button on:click={exportCSV} class="px-3 py-1 font-mono text-xs bg-cyan-400/10 border border-cyan-400/20 text-cyan-400 rounded hover:bg-cyan-400/20 transition-colors">
-            {exportMsg || 'EXPORT CSV'}
-          </button>
-        </div>
-      </div>
-
-      <div class="overflow-x-auto">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>MAC</th>
-              <th>Hardware ID</th>
-              <th>Model</th>
-              <th>Owner</th>
-              <th>Tier</th>
-              <th>Registered</th>
-              <th>Last Seen</th>
-              <th>Data (GB)</th>
-              <th>Status</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {#each filteredDevices as d (d.id)}
-              <tr class="animate-fade-in">
-                <td class="text-cyan-400 font-mono">{d.mac}</td>
-                <td class="text-slate-500">{d.hardwareId}</td>
-                <td class="text-slate-400">{d.model}</td>
-                <td class="text-slate-300">{d.owner}</td>
-                <td>
-                  <span class="font-mono text-xs {d.tier === 'Fixed' ? 'text-amber-400' : d.tier === 'Mobile' ? 'text-cyan-400' : 'text-emerald-400'}">{d.tier}</span>
-                </td>
-                <td class="text-slate-500">{new Date(d.registeredAt).toLocaleDateString('vi-VN')}</td>
-                <td class="text-slate-500">{relTime(d.lastSeen)}</td>
-                <td class="text-slate-400">{d.dataUsedGb.toFixed(1)}</td>
-                <td><span class="{statusBadge(deviceList.find(x => x.id === d.id)?.status || d.status)}">{deviceList.find(x => x.id === d.id)?.status || d.status}</span></td>
-                <td>
-                  <div class="flex gap-1">
-                    {#if (deviceList.find(x => x.id === d.id)?.status || d.status) === 'active'}
-                      <button
-                        on:click={() => suspendDevice(d.mac)}
-                        class="px-1.5 py-0.5 font-mono text-xs text-amber-400 border border-amber-400/20 rounded hover:bg-amber-400/10 transition-colors"
-                      >SUSPEND</button>
-                    {/if}
-                    {#if (deviceList.find(x => x.id === d.id)?.status || d.status) !== 'revoked'}
-                      <button
-                        on:click={() => confirmRevoke = d.mac}
-                        class="px-1.5 py-0.5 font-mono text-xs text-rose-400 border border-rose-400/20 rounded hover:bg-rose-400/10 transition-colors"
-                      >REVOKE</button>
-                    {/if}
-                  </div>
-                </td>
-              </tr>
-            {/each}
-          </tbody>
-        </table>
+  <section class="chart-container">
+    <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
+      <div class="font-mono text-xs text-slate-500 tracking-widest">REGISTERED DEVICES ({sortedDevices.length})</div>
+      <div class="flex gap-2 flex-wrap">
+        <input
+          bind:value={deviceSearch}
+          placeholder="Search MAC / HW ID / device..."
+          class="bg-space-900 border border-slate-700/50 rounded px-3 py-1 text-xs font-mono text-slate-300 placeholder-slate-600 focus:outline-none focus:border-cyan-400/40 w-60"
+        />
+        <select
+          bind:value={statusFilter}
+          class="bg-space-900 border border-slate-700/50 rounded px-2 py-1 text-xs font-mono text-slate-300 focus:outline-none focus:border-cyan-400/40"
+        >
+          <option value="all">All status</option>
+          <option value="registered">Registered</option>
+          <option value="active">Active</option>
+          <option value="suspended">Suspended</option>
+          <option value="revoked">Revoked</option>
+        </select>
       </div>
     </div>
 
-    <!-- Confirm Revoke Modal -->
-    {#if confirmRevoke}
-      <div class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in">
-        <div class="bg-space-800 border border-rose-500/30 rounded-lg p-6 max-w-sm w-full mx-4">
-          <div class="font-display text-sm text-rose-400 mb-2">CONFIRM REVOCATION</div>
-          <p class="font-sans text-xs text-slate-400 mb-1">Device MAC: <span class="text-slate-200 font-mono">{confirmRevoke}</span></p>
-          <p class="font-sans text-xs text-slate-500 mb-5">This action will immediately deny all connections from this device. It cannot be undone without re-registering the device.</p>
-          <div class="flex gap-3">
-            <button on:click={() => confirmRevoke && revokeDevice(confirmRevoke)} class="flex-1 py-2 font-mono text-xs bg-rose-500/20 border border-rose-500/40 text-rose-400 rounded hover:bg-rose-500/30 transition-colors">
-              CONFIRM REVOKE
-            </button>
-            <button on:click={() => confirmRevoke = null} class="flex-1 py-2 font-mono text-xs bg-space-900 border border-slate-700 text-slate-400 rounded hover:border-slate-500 transition-colors">
-              CANCEL
-            </button>
-          </div>
-        </div>
-      </div>
-    {/if}
-
-  <!-- ── Billing Events ── -->
-  {:else if activeTab === 'billing'}
-    <div class="grid grid-cols-1 xl:grid-cols-3 gap-4">
-      <!-- Top users -->
-      <div class="chart-container">
-        <div class="font-mono text-xs text-slate-500 mb-3 tracking-widest">TOP USERS BY DATA (GB)</div>
-        <div class="space-y-2">
-          {#each topUsers as u, i}
-            <div class="flex items-center gap-3">
-              <span class="font-mono text-xs text-slate-600 w-4">{i+1}</span>
-              <div class="flex-1">
-                <div class="flex justify-between mb-1">
-                  <span class="font-sans text-xs text-slate-300">{u.owner}</span>
-                  <span class="font-mono text-xs text-cyan-400">{u.dataUsedGb.toFixed(1)}</span>
-                </div>
-                <div class="h-1 bg-slate-800 rounded-full">
-                  <div class="h-full rounded-full bg-cyan-400/60" style="width: {Math.min(100, u.dataUsedGb / topUsers[0].dataUsedGb * 100)}%"></div>
-                </div>
-              </div>
-            </div>
-          {/each}
-        </div>
-      </div>
-
-      <!-- Tier breakdown -->
-      <div class="chart-container">
-        <div class="font-mono text-xs text-slate-500 mb-3 tracking-widest">SUBSCRIPTION BREAKDOWN</div>
-        <div class="space-y-3">
-          {#each [['Fixed', tierCounts.Fixed, 'text-amber-400', 'bg-amber-400'], ['Mobile', tierCounts.Mobile, 'text-cyan-400', 'bg-cyan-400'], ['Trial', tierCounts.Trial, 'text-emerald-400', 'bg-emerald-400']] as [tier, count, textc, bgc]}
-            <div>
-              <div class="flex justify-between mb-1">
-                <span class="font-mono text-xs {textc}">{tier}</span>
-                <span class="font-mono text-xs text-slate-400">{count} devices</span>
-              </div>
-              <div class="h-1.5 bg-slate-800 rounded-full">
-                <div class="h-full rounded-full {bgc} opacity-60" style="width: {count / devices.length * 100}%"></div>
-              </div>
-            </div>
-          {/each}
-        </div>
-      </div>
-
-      <!-- Geo-fence events -->
-      <div class="chart-container">
-        <div class="font-mono text-xs text-slate-500 mb-3 tracking-widest">GEO-FENCE EVENTS</div>
-        <div class="space-y-2">
-          {#each billingEvents.filter(b => b.eventType === 'geofence_breach') as evt}
-            <div class="p-2 rounded bg-rose-400/5 border border-rose-400/15">
-              <div class="font-mono text-xs text-rose-400">BREACH DETECTED</div>
-              <div class="font-sans text-xs text-slate-400 mt-0.5">{evt.owner}</div>
-              <div class="font-mono text-xs text-slate-600">{evt.deviceMac} · cost ${evt.cost?.toFixed(2)}</div>
-            </div>
-          {/each}
-          {#if billingEvents.filter(b => b.eventType === 'geofence_breach').length === 0}
-            <div class="py-4 text-center font-mono text-xs text-slate-600">NO BREACHES</div>
-          {/if}
-        </div>
-      </div>
-    </div>
-
-    <!-- Billing events table -->
-    <div class="chart-container">
-      <div class="flex items-center justify-between mb-3">
-        <div class="font-mono text-xs text-slate-500 tracking-widest">BILLING EVENT LOG</div>
-        <button on:click={exportBillingCSV} class="px-3 py-1 font-mono text-xs bg-cyan-400/10 border border-cyan-400/20 text-cyan-400 rounded hover:bg-cyan-400/20 transition-colors">
-          EXPORT CSV
-        </button>
-      </div>
-      <div class="overflow-x-auto">
-        <table class="data-table">
-          <thead>
-            <tr><th>Event ID</th><th>MAC</th><th>Owner</th><th>Tier</th><th>Type</th><th>Timestamp</th><th>Data (GB)</th><th>Cost ($)</th></tr>
-          </thead>
-          <tbody>
-            {#each billingEvents as b (b.id)}
-              <tr>
-                <td class="text-cyan-400">{b.id}</td>
-                <td class="text-slate-500">{b.deviceMac}</td>
-                <td class="text-slate-300">{b.owner}</td>
-                <td class="text-slate-500">{b.tier}</td>
-                <td>
-                  <span class="font-mono text-xs {b.eventType === 'geofence_breach' ? 'text-rose-400' : b.eventType === 'usage' ? 'text-cyan-400' : 'text-slate-500'}">
-                    {b.eventType.replace('_', ' ').toUpperCase()}
-                  </span>
-                </td>
-                <td class="text-slate-500 whitespace-nowrap">{relTime(b.timestamp)}</td>
-                <td class="text-slate-400">{b.dataGb?.toFixed(2) ?? '—'}</td>
-                <td class="text-slate-400">{b.cost != null ? b.cost.toFixed(2) : '—'}</td>
-              </tr>
-            {/each}
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-  <!-- ── Security Alerts ── -->
-  {:else if activeTab === 'alerts'}
-    <div class="chart-container">
-      <div class="font-mono text-xs text-slate-500 mb-3 tracking-widest">ALL ALERTS (RESOLVED + ACTIVE)</div>
-      <div class="space-y-2">
-        {#each $alerts as alert (alert.id)}
-          {@const cfg = { critical: { c: 'text-rose-400', bg: 'bg-rose-400/8', b: 'border-rose-400/20', i: '✕' }, warning: { c: 'text-amber-400', bg: 'bg-amber-400/8', b: 'border-amber-400/20', i: '△' }, info: { c: 'text-cyan-400', bg: 'bg-cyan-400/8', b: 'border-cyan-400/20', i: '◉' } }[alert.severity]}
-          <div class="flex items-start gap-3 p-3 rounded {cfg.bg} border {cfg.b} {alert.resolved ? 'opacity-40' : ''}">
-            <span class="font-mono {cfg.c} shrink-0">{cfg.i}</span>
-            <div class="flex-1">
-              <p class="font-sans text-xs text-slate-300">{alert.message}</p>
-              <div class="flex gap-3 mt-1">
-                <span class="font-mono text-xs text-slate-600">{relTime(alert.timestamp)}</span>
-                <span class="font-mono text-xs text-slate-600 uppercase">{alert.category}</span>
-                {#if alert.resolved}
-                  <span class="font-mono text-xs text-emerald-400">RESOLVED</span>
-                {/if}
-              </div>
-            </div>
-            {#if !alert.resolved}
-              <button
-                on:click={() => alerts.update(list => list.map(a => a.id === alert.id ? { ...a, resolved: true } : a))}
-                class="px-2 py-0.5 font-mono text-xs text-slate-500 border border-slate-700 rounded hover:border-slate-500 transition-colors shrink-0"
-              >RESOLVE</button>
-            {/if}
-          </div>
-        {/each}
-      </div>
-    </div>
-
-    <!-- Suspicious activity summary -->
-    <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
-      <div class="chart-container">
-        <div class="font-mono text-xs text-slate-500 mb-3 tracking-widest">SUSPICIOUS ACTIVITY FLAGS</div>
-        <div class="space-y-2">
-          <div class="p-2.5 rounded bg-rose-400/5 border border-rose-400/15">
-            <div class="font-mono text-xs text-rose-400 mb-1">GEO-FENCE BREACH</div>
-            <div class="font-sans text-xs text-slate-400">Device FE:DC:BA:98:76:54 (Bùi Thị H) moved outside Fixed zone boundary by 12km</div>
-          </div>
-          <div class="p-2.5 rounded bg-amber-400/5 border border-amber-400/15">
-            <div class="font-mono text-xs text-amber-400 mb-1">UNREGISTERED DEVICE</div>
-            <div class="font-sans text-xs text-slate-400">Connection attempt from 99:88:77:66:55:44 on HCMC GW — denied</div>
-          </div>
-        </div>
-      </div>
-      <div class="chart-container">
-        <div class="font-mono text-xs text-slate-500 mb-3 tracking-widest">ADMIN AUDIT LOG</div>
-        <div class="space-y-1.5">
-          {#each [
-            { action: 'Device BA:DC:AF:E0:01:23 revoked', user: 'admin', time: '2h ago' },
-            { action: 'Billing report generated (May 2025)', user: 'billing1', time: '3h ago' },
-            { action: 'Device 12:34:56:78:9A:BC suspended', user: 'admin', time: '5h ago' },
-            { action: 'Admin login from 192.168.1.100', user: 'operator1', time: '8h ago' },
-          ] as entry}
-            <div class="flex gap-3 py-1.5 border-b border-slate-800/50 last:border-0">
-              <span class="font-mono text-xs text-slate-600 shrink-0 w-14">{entry.time}</span>
-              <span class="font-sans text-xs text-slate-400 flex-1">{entry.action}</span>
-              <span class="font-mono text-xs text-cyan-400 shrink-0">{entry.user}</span>
-            </div>
-          {/each}
-        </div>
-      </div>
-    </div>
-
-  <!-- ── RBAC ── -->
-  {:else if activeTab === 'rbac'}
-    <div class="chart-container">
-      <div class="flex items-center justify-between mb-3">
-        <div class="font-mono text-xs text-slate-500 tracking-widest">ADMIN USERS & ROLES</div>
-        <button class="px-3 py-1 font-mono text-xs bg-cyan-400/10 border border-cyan-400/20 text-cyan-400 rounded hover:bg-cyan-400/20 transition-colors">
-          + ADD USER
-        </button>
-      </div>
+    <div class="overflow-x-auto">
       <table class="data-table">
         <thead>
-          <tr><th>Username</th><th>Email</th><th>Role</th><th>Last Login</th><th>Status</th><th>Actions</th></tr>
+          <tr>
+            <th><button type="button" class="font-mono text-xs" on:click={() => toggleSort('deviceId')}>Device ID</button></th>
+            <th>MAC</th>
+            <th>Hardware ID</th>
+            <th>Model</th>
+            <th>Owner</th>
+            <th><button type="button" class="font-mono text-xs" on:click={() => toggleSort('registeredAt')}>Registered</button></th>
+            <th>Revoked</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
         </thead>
         <tbody>
-          {#each adminUsers as u (u.id)}
-            <tr>
-              <td class="text-cyan-400">{u.username}</td>
-              <td class="text-slate-500">{u.email}</td>
-              <td>
-                <span class="font-mono text-xs {u.role === 'Super Admin' ? 'text-rose-400' : u.role === 'Network Operator' ? 'text-cyan-400' : 'text-amber-400'}">
-                  {u.role}
-                </span>
-              </td>
-              <td class="text-slate-500">{relTime(u.lastLogin)}</td>
-              <td>
-                <span class="{u.active ? 'badge-online' : 'badge-offline'}">{u.active ? 'active' : 'disabled'}</span>
-              </td>
+          {#each pagedDevices as device (device.deviceId)}
+            <tr class="animate-fade-in">
+              <td class="text-cyan-400">{device.deviceId}</td>
+              <td class="text-slate-300">{device.mac}</td>
+              <td class="text-slate-500">{device.hardwareId}</td>
+              <td class="text-slate-500">{device.model ?? '-'}</td>
+              <td class="text-slate-500">{device.owner ?? '-'}</td>
+              <td class="text-slate-500">{relTime(device.registeredAt)}</td>
+              <td class="text-slate-500">{device.revokedAt ? relTime(device.revokedAt) : '-'}</td>
+              <td><span class="{statusBadge(device.status)}">{device.status}</span></td>
               <td>
                 <div class="flex gap-1">
-                  <button class="px-1.5 py-0.5 font-mono text-xs text-slate-500 border border-slate-700 rounded hover:text-slate-300 transition-colors">EDIT</button>
-                  {#if u.active}
-                    <button class="px-1.5 py-0.5 font-mono text-xs text-amber-400 border border-amber-400/20 rounded hover:bg-amber-400/10 transition-colors">DISABLE</button>
+                  {#if device.status === 'active' || device.status === 'registered'}
+                    <button
+                      type="button"
+                      on:click={() => suspendDevice(device)}
+                      class="px-2 py-1 font-mono text-xs text-amber-400 border border-amber-400/20 rounded hover:bg-amber-400/10 transition-colors"
+                    >
+                      SUSPEND
+                    </button>
+                  {/if}
+                  {#if device.status !== 'revoked'}
+                    <button
+                      type="button"
+                      on:click={() => confirmRevoke = device}
+                      class="px-2 py-1 font-mono text-xs text-rose-400 border border-rose-400/20 rounded hover:bg-rose-400/10 transition-colors"
+                    >
+                      REVOKE
+                    </button>
                   {/if}
                 </div>
               </td>
             </tr>
-          {/each}
-        </tbody>
-      </table>
-    </div>
-
-    <!-- Role permissions -->
-    <div class="chart-container">
-      <div class="font-mono text-xs text-slate-500 mb-3 tracking-widest">ROLE PERMISSIONS MATRIX</div>
-      <table class="data-table text-xs">
-        <thead>
-          <tr>
-            <th>Permission</th>
-            <th class="text-rose-400">Super Admin</th>
-            <th class="text-cyan-400">Net. Operator</th>
-            <th class="text-amber-400">Billing Mgr</th>
-          </tr>
-        </thead>
-        <tbody>
-          {#each [
-            ['View Overview Dashboard', true, true, true],
-            ['View Monitoring', true, true, false],
-            ['View Security/Billing', true, false, true],
-            ['Revoke Devices', true, false, false],
-            ['Manage Admin Users', true, false, false],
-            ['Export Billing Reports', true, false, true],
-            ['Modify Gateway Config', true, true, false],
-          ] as [perm, sa, op, bm]}
+          {:else}
             <tr>
-              <td class="text-slate-400">{perm}</td>
-              <td class="text-center">{sa ? '✓' : '—'}</td>
-              <td class="text-center {op ? 'text-emerald-400' : 'text-slate-700'}">{op ? '✓' : '—'}</td>
-              <td class="text-center {bm ? 'text-emerald-400' : 'text-slate-700'}">{bm ? '✓' : '—'}</td>
+              <td colspan="9" class="text-center text-slate-600 py-8">No devices returned from API</td>
             </tr>
           {/each}
         </tbody>
       </table>
     </div>
-  {/if}
 
+    <div class="flex items-center justify-between mt-3">
+      <span class="font-mono text-xs text-slate-600">
+        {sortedDevices.length === 0 ? 0 : page * PAGE_SIZE + 1}-{Math.min((page + 1) * PAGE_SIZE, sortedDevices.length)} of {sortedDevices.length}
+      </span>
+      <div class="flex gap-1">
+        <button type="button" on:click={() => page = Math.max(0, page - 1)} disabled={page === 0} class="px-2 py-1 font-mono text-xs bg-space-900 border border-slate-700/50 rounded disabled:opacity-30 hover:border-cyan-400/30 transition-colors">PREV</button>
+        <button type="button" on:click={() => page = Math.min(totalPages - 1, page + 1)} disabled={page >= totalPages - 1} class="px-2 py-1 font-mono text-xs bg-space-900 border border-slate-700/50 rounded disabled:opacity-30 hover:border-cyan-400/30 transition-colors">NEXT</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="chart-container">
+    <div class="font-mono text-xs text-slate-500 tracking-widest mb-3">SUSPICIOUS ACTIVITY ALERTS</div>
+    <div class="overflow-x-auto max-h-72 overflow-y-auto">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Timestamp</th>
+            <th>Type</th>
+            <th>Device/MAC</th>
+            <th>Message</th>
+            <th>Severity</th>
+          </tr>
+        </thead>
+        <tbody>
+          {#each $securityAlerts as alert (alert.id)}
+            <tr class="animate-fade-in">
+              <td class="text-slate-500 whitespace-nowrap">{alert.timestamp.toLocaleString('en-GB', { hour12: false })}</td>
+              <td class="text-slate-300">{alert.type.replace('_', ' ')}</td>
+              <td class="text-slate-400">{alert.deviceId ?? alert.mac ?? '-'}</td>
+              <td class="text-slate-400">{alert.message}</td>
+              <td><span class="{severityBadge(alert)}">{alert.severity.toUpperCase()}</span></td>
+            </tr>
+          {:else}
+            <tr>
+              <td colspan="5" class="text-center text-slate-600 py-8">No security alerts</td>
+            </tr>
+          {/each}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  {#if confirmRevoke}
+    <div class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in">
+      <div class="bg-space-800 border border-rose-500/30 rounded-lg p-6 max-w-sm w-full mx-4">
+        <div class="font-display text-sm text-rose-400 mb-2">CONFIRM REVOCATION</div>
+        <p class="font-sans text-xs text-slate-400 mb-1">
+          Device: <span class="text-slate-200 font-mono">{confirmRevoke.deviceId}</span>
+        </p>
+        <p class="font-sans text-xs text-slate-500 mb-5">
+          The backend will mark this device as revoked and deny future verification.
+        </p>
+        <div class="flex gap-3">
+          <button
+            type="button"
+            on:click={() => confirmRevoke && revokeDevice(confirmRevoke)}
+            class="flex-1 py-2 font-mono text-xs bg-rose-500/20 border border-rose-500/40 text-rose-400 rounded hover:bg-rose-500/30 transition-colors"
+          >
+            CONFIRM
+          </button>
+          <button
+            type="button"
+            on:click={() => confirmRevoke = null}
+            class="flex-1 py-2 font-mono text-xs bg-space-900 border border-slate-700 text-slate-400 rounded hover:border-slate-500 transition-colors"
+          >
+            CANCEL
+          </button>
+        </div>
+      </div>
+    </div>
+  {/if}
 </main>

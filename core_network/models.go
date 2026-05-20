@@ -58,6 +58,7 @@ type Gateway struct {
 // Session represents an active router connection
 type Session struct {
 	ID               string       `json:"session_id"`
+	DeviceID         string       `json:"device_id"`
 	RouterMAC        string       `json:"router_mac"`
 	SatelliteID      string       `json:"satellite_id"`
 	CurrentGatewayID string       `json:"current_gateway_id"`
@@ -73,6 +74,26 @@ type TelemetryEvent struct {
 	GatewayID   string      `json:"gateway_id"`
 	Metrics     interface{} `json:"metrics"`
 	Description string      `json:"description"`
+}
+
+// --- ADDED FOR PHASE 1 EXTENSION: SATELLITES & HANDOVERS ---
+
+// Satellite represents the state and orbit information of a LEO satellite
+type Satellite struct {
+	ID       string   `json:"id"`
+	Name     string   `json:"name"`
+	Location Location `json:"location"`
+}
+
+// HandoverEvent tracks historical handover transitions between gateways
+type HandoverEvent struct {
+	ID              string    `json:"id"`
+	SessionID       string    `json:"session_id"`
+	SourceGatewayID string    `json:"source_gateway_id"`
+	TargetGatewayID string    `json:"target_gateway_id"`
+	DurationMs      int64     `json:"duration_ms"`
+	Status          string    `json:"status"` // "success" or "failed"
+	Timestamp       time.Time `json:"timestamp"`
 }
 
 // --- ADDED FOR PHASE 2: DEVICE PROVISIONING ---
@@ -117,4 +138,59 @@ type VerifyDeviceReq struct {
 type RevokeDeviceReq struct {
 	DeviceID string `json:"device_id" binding:"required"`
 	Reason   string `json:"reason" binding:"required"`
+}
+
+// --- ADDED FOR PHASE 4: SPATIOTEMPORAL BILLING ---
+
+// PlanType defines the subscription business model
+type PlanType string
+
+const (
+	PlanFixed  PlanType = "fixed"  // Geofenced to a specific radius (e.g., 50km)
+	PlanMobile PlanType = "mobile" // Roaming allowed anywhere, billed by usage
+)
+
+// SubscriptionRecord holds billing and geofencing rules for a specific device
+type SubscriptionRecord struct {
+	DeviceID        string    `json:"device_id"`
+	Plan            PlanType  `json:"plan"`
+	HomeLocation    *Location `json:"home_location,omitempty"` // Required if Plan == PlanFixed
+	AllowedRadiusKm float64   `json:"allowed_radius_km"`       // Max drift distance (e.g., 50.0)
+}
+
+// GeofenceOverride defines a temporary bypass for geofence restrictions (e.g., emergencies)
+type GeofenceOverride struct {
+	OverrideID string    `json:"override_id"`
+	DeviceID   string    `json:"device_id"`
+	ExpiresAt  time.Time `json:"expires_at"`
+	Reason     string    `json:"reason"`
+}
+
+// BillingEventRecord tracks network usage for ISP accounting
+type BillingEventRecord struct {
+	EventID    string    `json:"event_id"`
+	EventType  string    `json:"type"` // "start", "stop", "usage"
+	SessionID  string    `json:"session_id"`
+	DeviceID   string    `json:"device_id"`
+	BytesDelta int64     `json:"bytes_delta"`
+	Timestamp  time.Time `json:"ts"`
+}
+
+// --- API Request Payloads (Matching api.md) ---
+
+// GeofenceOverrideReq represents payload for POST /api/geofence/override
+type GeofenceOverrideReq struct {
+	DeviceID string `json:"device_id" binding:"required"`
+	TTLS     int    `json:"ttl_s" binding:"required,min=1"`
+	Reason   string `json:"reason" binding:"required"`
+}
+
+// BillingEventReq represents payload for POST /api/billing/event
+type BillingEventReq struct {
+	EventID    string    `json:"event_id" binding:"required"`
+	Type       string    `json:"type" binding:"required"`
+	SessionID  string    `json:"session_id" binding:"required"`
+	DeviceID   string    `json:"device_id" binding:"required"`
+	BytesDelta int64     `json:"bytes_delta"`
+	Timestamp  time.Time `json:"ts" binding:"required"`
 }

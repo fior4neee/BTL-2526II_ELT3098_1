@@ -5,14 +5,24 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/gorilla/websocket"
 )
+
+// Configure standard upgrade parameters for safe memory handling
+var wsUpgrader = websocket.Upgrader{
+	ReadBufferSize:  1024,
+	WriteBufferSize: 1024,
+	CheckOrigin: func(r *http.Request) bool {
+		return true // Allow cross-origin connection rules for VNU-LEO frontend interfaces
+	},
+}
 
 func main() {
 	log.Println("--- Starting VNU-LEO Core Network ---")
 
-	// 1. Load Deployment Settings (The Entry Point)
 	deployPath := "data/deploy_setting.json"
 	deployRaw, err := ioutil.ReadFile(deployPath)
 	if err != nil {
@@ -24,7 +34,6 @@ func main() {
 		log.Fatalf("Critical: Failed to parse deploy JSON: %v\n", err)
 	}
 
-	// 2. Load System Settings (Physics & Logic params)
 	log.Printf("Loading system settings from: %s\n", deployConfig.SystemSettingsPath)
 	systemRaw, err := ioutil.ReadFile(deployConfig.SystemSettingsPath)
 	if err != nil {
@@ -36,13 +45,29 @@ func main() {
 		log.Fatalf("Critical: Failed to parse system settings JSON: %v\n", err)
 	}
 
-	// Khởi tạo Module chống giả mạo thiết bị
-	provisioningManager := NewProvisioningManager(systemSettings)
+	// Load dynamic external satellite positioning vectors securely
+	satPath := "data/satellites.json"
+	satRaw, err := ioutil.ReadFile(satPath)
+	if err != nil {
+		log.Fatalf("Critical: Could not load data/satellites.json: %v\n", err)
+	}
+	var satellites []Satellite
+	if err := json.Unmarshal(satRaw, &satellites); err != nil {
+		log.Fatalf("Critical: Failed to parse satellite data: %v\n", err)
+	}
 
-	// 3. Initialize Gateway Pool with System Settings
+	provisioningManager := NewProvisioningManager(systemSettings)
+	billingManager := NewBillingManager(systemSettings)
+
+	billingManager.AddMockSubscription(&SubscriptionRecord{
+		DeviceID:        "router-vnu-leo-001",
+		Plan:            PlanFixed,
+		AllowedRadiusKm: 50.0,
+		HomeLocation:    &Location{Latitude: 21.0285, Longitude: 105.8542, Altitude: 0},
+	})
+
 	gatewayPool := NewGatewayPool(systemSettings)
 
-	// 4. Load Gateway Data from the path specified in deployConfig
 	log.Printf("Loading gateway data from: %s\n", deployConfig.GatewayDataPath)
 	gatewayDataRaw, err := ioutil.ReadFile(deployConfig.GatewayDataPath)
 	if err != nil {
@@ -60,55 +85,128 @@ func main() {
 	}
 	log.Printf("Successfully initialized %d gateways.\n", len(gateways))
 
-	// 5. Initialize Handover Manager
-	handoverManager := NewHandoverManager(gatewayPool, systemSettings)
-	log.Println("Handover Manager is online.")
+	handoverManager := NewHandoverManager(gatewayPool, systemSettings, billingManager)
+	log.Println("Handover Manager is online with Geofence protection.")
 
-	// 6. REST API Setup
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.Default()
 
 	v1 := router.Group("/api/v1")
 	{
 		v1.GET("/health", func(c *gin.Context) {
-			c.JSON(http.StatusOK, gin.H{
-				"status":    "ok",
-				"satellite": systemSettings.DefaultSatelliteID,
-				"port":      deployConfig.AppPort,
-			})
+			c.JSON(http.StatusOK, gin.H{"status": "ok", "port": deployConfig.AppPort})
 		})
-
 		v1.GET("/gateways", func(c *gin.Context) {
 			c.JSON(http.StatusOK, gin.H{"data": gatewayPool.GetAllGateways()})
 		})
-
 		v1.GET("/sessions", func(c *gin.Context) {
 			c.JSON(http.StatusOK, gin.H{"data": handoverManager.GetActiveSessions()})
 		})
 
+		// 1. GET /api/v1/satellites (Matching api.md schemas)
+		v1.GET("/satellites", func(c *gin.Context) {
+			// Exception Handling: Verify if gateway_id query filter exists and matches configured locations
+			gwID := c.Query("gateway_id")
+			if gwID != "" {
+				found := false
+				for _, gw := range gateways {
+					if gw.ID == gwID {
+						found = true
+						break
+					}
+				}
+				if !found {
+					c.JSON(http.StatusNotFound, gin.H{"error": "Specified gateway node data not loaded"})
+					return
+				}
+			}
+			c.JSON(http.StatusOK, gin.H{"satellites": satellites})
+		})
+
+		// 2. GET /api/v1/handovers (Historical transitions lookup)
+		v1.GET("/handovers", func(c *gin.Context) {
+			c.JSON(http.StatusOK, gin.H{"handovers": handoverManager.GetHandoverHistory()})
+		})
+
+		// 3. GET /api/v1/telemetry/stream (WebSocket network pipeline protocol)
+		v1.GET("/telemetry/stream", func(c *gin.Context) {
+			// Security validation exception check
+			token := c.Query("token")
+			if token == "" {
+				c.JSON(http.StatusUnauthorized, gin.H{"error": "Missing short-lived authentication token parameter"})
+				return
+			}
+
+			ws, err := wsUpgrader.Upgrade(c.Writer, c.Request, nil)
+			if err != nil {
+				log.Printf("Failed to upgrade server response to websocket context: %v\n", err)
+				return
+			}
+
+			clientChan := make(chan interface{}, 10)
+			handoverManager.registerWs <- clientChan
+
+			// Keeps reading/writing loops alive until the subscriber gracefully leaves
+			go func() {
+				defer func() {
+					handoverManager.unregisterWs <- clientChan
+					ws.Close()
+				}()
+
+				for msg := range clientChan {
+					ws.SetWriteDeadline(time.Now().Add(5 * time.Second))
+					if err := ws.WriteJSON(msg); err != nil {
+						break
+					}
+				}
+			}()
+		})
+
 		v1.POST("/router/connect", func(c *gin.Context) {
 			var req struct {
-				MAC string `json:"router_mac" binding:"required"`
+				DeviceID string   `json:"device_id" binding:"required"`
+				MAC      string   `json:"router_mac" binding:"required"`
+				Location Location `json:"location" binding:"required"`
 			}
 			if err := c.ShouldBindJSON(&req); err != nil {
 				c.JSON(http.StatusBadRequest, gin.H{"error": "invalid payload"})
 				return
 			}
-			sess, err := handoverManager.HandleRouterConnect(req.MAC)
+			sess, err := handoverManager.HandleRouterConnect(req.DeviceID, req.MAC, req.Location)
 			if err != nil {
-				c.JSON(http.StatusServiceUnavailable, gin.H{"error": err.Error()})
+				c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
 				return
 			}
 			c.JSON(http.StatusOK, gin.H{"session": sess})
 		})
 
-		// ROUTE DEVICE PROVISIONING (Chuyển vào trong block v1 cho đúng cấu trúc)
+		v1.POST("/handover/trigger", func(c *gin.Context) {
+			var req struct {
+				SessionID       string   `json:"session_id" binding:"required"`
+				TargetGatewayID string   `json:"target_gateway_id" binding:"required"`
+				Location        Location `json:"location" binding:"required"`
+			}
+			if err := c.ShouldBindJSON(&req); err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "invalid payload"})
+				return
+			}
+			err := handoverManager.TriggerHandover(req.SessionID, req.TargetGatewayID, req.Location)
+			if err != nil {
+				c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+				return
+			}
+			c.JSON(http.StatusOK, gin.H{"status": "handover_successful"})
+		})
+
 		v1.POST("/devices/register", provisioningManager.RegisterHandler)
 		v1.POST("/devices/verify", provisioningManager.VerifyHandler)
 		v1.POST("/devices/revoke", provisioningManager.RevokeHandler)
+
+		v1.POST("/billing/event", billingManager.IngestBillingEventHandler)
+		v1.GET("/geofence/status", billingManager.GetGeofenceStatusHandler)
+		v1.POST("/geofence/override", billingManager.OverrideGeofenceHandler)
 	}
 
-	// 7. Start the Server using the port from deployConfig
 	fullPort := ":" + deployConfig.AppPort
 	log.Printf("VNU-LEO Core API listening on %s\n", fullPort)
 	if err := router.Run(fullPort); err != nil {

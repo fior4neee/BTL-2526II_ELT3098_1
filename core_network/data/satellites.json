@@ -1,0 +1,17 @@
+[
+  {
+    "id": "SAT-LEO-001",
+    "name": "VNU-LEO-Alpha",
+    "location": { "lat": 21.0285, "lon": 105.8542, "alt": 550.0 }
+  },
+  {
+    "id": "SAT-LEO-002",
+    "name": "VNU-LEO-Beta",
+    "location": { "lat": 16.0471, "lon": 108.2062, "alt": 552.5 }
+  },
+  {
+    "id": "SAT-LEO-003",
+    "name": "VNU-LEO-Gamma",
+    "location": { "lat": 10.7626, "lon": 106.6601, "alt": 548.0 }
+  }
+]

@@ -1,146 +1,57 @@
-# web_admin — VNU-LEO ISP Admin Dashboard
+# VNU-LEO Web Admin
 
-**Technology**: SvelteKit 2.x + TailwindCSS 3.x + DaisyUI 4.x + Chart.js  
-**Phase**: P1 (Core Monitoring) + P2 (Security & Billing)  
-**Owner**: Frontend/DevOps Team
+SvelteKit dashboard for monitoring gateways, sessions, and handovers.
+
+## Prerequisites
+- Node.js 18+
+- Core Network running on http://localhost:8081
+
+## Run the UI
+1. Open a terminal in this folder.
+2. Install dependencies:
+   - `npm install`
+3. Start dev server:
+   - `npm run dev`
+4. Open the URL printed in the terminal (usually http://localhost:5173).
+
+## Simulate traffic (sessions + handovers)
+> Use PowerShell in the repo root or any terminal that can reach the API.
+
+### 1) Check gateways
+```powershell
+Invoke-RestMethod -Method GET -Uri "http://localhost:8081/api/v1/gateways"
+```
+Copy a gateway id (example: `GW-HAN-01`, `GW-DAN-01`, `GW-HCM-01`).
+
+### 2) Create a session
+```powershell
+$body = @{
+  device_id = "router-vnu-leo-001"
+  router_mac = "AA:BB:CC:DD:EE:01"
+  location = @{ lat = 21.0285; lon = 105.8542; alt = 0 }
+} | ConvertTo-Json -Depth 4
+
+Invoke-RestMethod -Method POST -Uri "http://localhost:8081/api/v1/router/connect" -Body $body -ContentType "application/json"
+```
+Copy the returned `session.session_id`.
+
+### 3) Trigger a handover
+```powershell
+$body = @{
+  session_id = "<SESSION_ID_FROM_STEP_2>"
+  target_gateway_id = "GW-DAN-01"
+  location = @{ lat = 16.0471; lon = 108.2062; alt = 0 }
+} | ConvertTo-Json -Depth 4
+
+Invoke-RestMethod -Method POST -Uri "http://localhost:8081/api/v1/handover/trigger" -Body $body -ContentType "application/json"
+```
+
+### 4) Verify data in UI
+- Overview: gateway counts, sessions, handover metrics
+- Monitoring: sessions table and handover history
 
 ---
 
-## Overview
-
-Real-time ISP operator dashboard for the VNU-LEO satellite constellation. Provides live monitoring of gateways, sessions, handover events, device provisioning, and billing.
-
-## Project Structure
-
-```
-web_admin/
-├── src/
-│   ├── app.css                     Global styles (fonts, CSS vars, utilities)
-│   ├── app.html                    Base HTML template
-│   ├── lib/
-│   │   ├── types.ts                Shared TypeScript interfaces
-│   │   ├── api/
-│   │   │   └── mock.ts             Mock backend (replace with real Go API calls)
-│   │   ├── stores/
-│   │   │   └── index.ts            Svelte writable stores + live update engine
-│   │   └── components/
-│   │       ├── Sidebar.svelte      Navigation sidebar
-│   │       ├── Topbar.svelte       Page header with clock + alerts
-│   │       ├── StatCard.svelte     Metric card component
-│   │       ├── ConstellationMap.svelte  SVG Vietnam map with gateways + satellites
-│   │       └── AlertPanel.svelte   Alert list with resolve actions
-│   └── routes/
-│       ├── +layout.svelte          Root layout (sidebar + live update init)
-│       ├── +page.svelte            Home/Overview page (P1)
-│       ├── monitoring/
-│       │   └── +page.svelte        Detailed monitoring: charts, sessions, handovers (P1)
-│       └── security/
-│           └── +page.svelte        Security, device registry, billing, RBAC (P2)
-├── static/
-│   └── favicon.svg
-├── package.json
-├── svelte.config.js
-├── vite.config.ts
-├── tailwind.config.js
-├── postcss.config.js
-└── tsconfig.json
-```
-
-## Quick Start
-
-```bash
-cd web_admin
-
-# Install dependencies
-npm install --legacy-peer-deps
-
-# Start dev server (http://localhost:5173)
-npm run dev
-
-# Production build
-npm run build
-npm run preview
-```
-
-## Pages
-
-### `/` — Overview (P1)
-- Network stat cards (sessions, traffic, handover latency, packet loss)
-- Gateway status cards with live CPU/memory/BW bars
-- SVG constellation map (Vietnam, animated satellite positions)
-- Alert panel (resolve in-place)
-
-### `/monitoring` — Detailed Monitoring (P1)
-- Gateway drill-down cards (click to filter sessions)
-- 4 live charts: traffic volume, session count, C/N ratio per gateway, handover frequency
-- Session list with filtering + pagination (1 Hz updates)
-- Handover history table (last 100, searchable)
-
-### `/security` — Security & Billing (P2)
-- **Device Registry**: registered devices, suspend/revoke with confirmation dialog, CSV export
-- **Billing Events**: subscription breakdown, top users, geo-fence event log, billing export
-- **Security Alerts**: all alerts, resolve button, suspicious activity, admin audit log
-- **Admin RBAC**: user list, role permissions matrix, disable/enable accounts
-
-## Connecting to Real Backend
-
-All mock data lives in `src/lib/api/mock.ts`. To connect the real Go backend:
-
-1. Replace store update functions in `src/lib/stores/index.ts` with `fetch()` calls:
-   ```typescript
-   // Example: replace mock.updateGateways() with:
-   const res = await fetch('/api/gateways');
-   const data = await res.json();
-   gateways.set(data);
-   ```
-
-2. WebSocket for real-time updates:
-   ```typescript
-   const ws = new WebSocket('ws://localhost:8080/ws/telemetry');
-   ws.onmessage = (e) => {
-     const msg = JSON.parse(e.data);
-     if (msg.type === 'gateway_update') gateways.set(msg.data);
-     if (msg.type === 'handover_event') handoverHistory.update(h => [msg.data, ...h.slice(0,99)]);
-   };
-   ```
-
-3. JWT auth header:
-   ```typescript
-   headers: { 'Authorization': `Bearer ${token}` }
-   ```
-
-## API Endpoints (from Core Network Go module)
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/gateways` | Gateway status list |
-| GET | `/api/sessions` | Active + historical sessions |
-| GET | `/api/handovers` | Recent handover events |
-| GET | `/api/devices` | Registered devices |
-| POST | `/api/devices/{mac}/revoke` | Admin revocation |
-| POST | `/api/devices/{mac}/suspend` | Admin suspension |
-| GET | `/api/billing/report?from=T0&to=T1` | Billing data |
-| WS | `/ws/telemetry` | Real-time stream |
-
-## Success Criteria Checklist (P1)
-
-- [x] Dashboard overview with gateway status, session count, traffic, alerts
-- [x] Constellation map with animated satellite positions + gateway pins
-- [x] Live monitoring page with 4 chart types (area, line, bar)
-- [x] Session list with gateway filter + search + pagination
-- [x] Handover history (100 events, searchable, color-coded)
-- [x] Alert panel with resolve-in-place
-- [x] Real-time updates (1 Hz gateway, 5 Hz sessions via stores)
-- [x] Loads in <2 sec (Vite + SvelteKit SSR)
-- [x] Responsive (1024px+ tablet/desktop)
-- [x] Dark mode (default dark theme)
-
-## Success Criteria Checklist (P2)
-
-- [x] Device registry with suspend/revoke + confirmation 2FA flow
-- [x] CSV export for devices and billing reports
-- [x] Geo-fence event log
-- [x] Billing events table
-- [x] RBAC user management table + permissions matrix
-- [x] Admin audit log
-- [x] Suspicious activity flags
+## Notes
+- Enable device registry calls (Security tab): set `VITE_ENABLE_DEVICES=true` in your web_admin environment, then restart `npm run dev`.
+- Enable live telemetry stream: set `VITE_TELEMETRY_TOKEN=<any-non-empty-string>`, then restart `npm run dev`.
