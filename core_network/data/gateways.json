@@ -25,32 +25,5 @@
     "min_elevation_deg": 25.0,
     "antenna": { "gain_dbi": 45.0, "beam_width_deg": 1.2 },
     "status": "alive"
-  },
-  {
-    "id": "GW-VIN-01",
-    "name": "Vinh Gateway",
-    "location": { "lat": 18.6733, "lon": 105.6813, "alt": 0.005 },
-    "max_sessions": 30000,
-    "min_elevation_deg": 20.0,
-    "antenna": { "gain_dbi": 38.5, "beam_width_deg": 2.0 },
-    "status": "alive"
-  },
-  {
-    "id": "GW-HUE-01",
-    "name": "Hue Gateway",
-    "location": { "lat": 16.4637, "lon": 107.5909, "alt": 0.010 },
-    "max_sessions": 30000,
-    "min_elevation_deg": 20.0,
-    "antenna": { "gain_dbi": 38.5, "beam_width_deg": 2.0 },
-    "status": "alive"
-  },
-  {
-    "id": "GW-CTH-01",
-    "name": "Can Tho Gateway",
-    "location": { "lat": 10.0452, "lon": 105.7469, "alt": 0.002 },
-    "max_sessions": 45000,
-    "min_elevation_deg": 20.0,
-    "antenna": { "gain_dbi": 40.0, "beam_width_deg": 1.8 },
-    "status": "alive"
   }
 ]
