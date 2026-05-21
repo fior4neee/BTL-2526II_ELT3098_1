@@ -132,6 +132,10 @@ func (hm *HandoverManager) TriggerHandover(sessionID, targetGW string, currentLo
 		return errors.New("session not found")
 	}
 
+	if err := hm.gatewayPool.UpdateLoad(targetGW, 0); err != nil {
+        return errors.New("target gateway not found in registry")
+    }
+
 	startTime := time.Now()
 	oldGW := session.CurrentGatewayID
 
