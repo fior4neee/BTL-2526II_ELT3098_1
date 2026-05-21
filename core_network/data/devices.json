@@ -23,5 +23,30 @@
         "provisioning_token": "bcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
         "registered_at": "2026-05-07T15:33:25.171180Z",
         "revoked_at": "2026-05-16T15:33:25.171186Z"
+    },
+    {
+        "device_id": "router-vnu-leo-004",
+        "mac": "54:E1:AD:99:3B:1F",
+        "hw_id": "SEC-ENC-223344D",
+        "status": "active",
+        "provisioning_token": "c7d8e9f0a1b2c3d4e5f67890c7d8e9f0a1b2c3d4e5f67890c7d8e9f0a1b2c3d4",
+        "registered_at": "2026-05-18T09:12:45.102934Z"
+    },
+    {
+        "device_id": "router-vnu-leo-005",
+        "mac": "F8:1A:67:B2:EE:90",
+        "hw_id": "SEC-ENC-556677E",
+        "status": "registered",
+        "provisioning_token": "90abcdef1234567890abcdef1234567890abcdef1234567890abcdef12345678",
+        "registered_at": "2026-05-19T11:45:10.220194Z"
+    },
+    {
+        "device_id": "router-vnu-leo-006",
+        "mac": "00:22:44:66:88:AA",
+        "hw_id": "SEC-ENC-889900F",
+        "status": "revoked",
+        "provisioning_token": "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+        "registered_at": "2026-05-10T08:22:15.551203Z",
+        "revoked_at": "2026-05-20T14:10:05.992104Z"
     }
 ]
