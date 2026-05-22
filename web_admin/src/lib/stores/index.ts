@@ -84,13 +84,12 @@ export async function triggerHandoverForSession(sessionId: string, targetGateway
   return result;
 }
 
-export async function suspendDeviceByMac(mac: string) {
-  await api.suspendDevice(mac);
+export async function suspendDevice(deviceId: string) {
+  await api.suspendDevice(deviceId);
   await refreshDevices();
 }
-
-export async function revokeDeviceByMac(mac: string) {
-  await api.revokeDeviceByMac(mac);
+export async function revokeDevice(deviceId: string) {
+  await api.revokeDevice(deviceId);
   await refreshDevices();
 }
 

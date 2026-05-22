@@ -200,16 +200,19 @@ export async function getDevices(): Promise<Device[]> {
   return (body.devices ?? []).map(normalizeDevice);
 }
 
-export async function suspendDevice(mac: string): Promise<void> {
+export async function suspendDevice(deviceId: string): Promise<void> {
   if (!DEVICES_ENABLED) return;
-  await requestJson(`/devices/${encodeURIComponent(mac)}/suspend`, { method: 'POST' });
+  await requestJson(`/devices/suspend`, {
+    method: 'POST',
+    body: JSON.stringify({ device_id: deviceId }), // Sửa lại thành body
+  });
 }
 
-export async function revokeDeviceByMac(mac: string, reason = 'Revoked by admin'): Promise<void> {
+export async function revokeDevice(deviceId: string, reason = 'Revoked by admin'): Promise<void> {
   if (!DEVICES_ENABLED) return;
-  await requestJson(`/devices/${encodeURIComponent(mac)}/revoke`, {
+  await requestJson(`/devices/revoke`, {
     method: 'POST',
-    body: JSON.stringify({ reason }),
+    body: JSON.stringify({ device_id: deviceId, reason }), // Sửa lại thành body
   });
 }
 

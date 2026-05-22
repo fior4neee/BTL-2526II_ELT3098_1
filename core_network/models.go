@@ -104,6 +104,7 @@ type DeviceStatus string
 const (
 	DeviceRegistered DeviceStatus = "registered"
 	DeviceActive     DeviceStatus = "active"
+	DeviceSuspended  DeviceStatus = "suspended"
 	DeviceRevoked    DeviceStatus = "revoked"
 )
 

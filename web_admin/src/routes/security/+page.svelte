@@ -5,9 +5,9 @@
     devices,
     lastError,
     refreshDevices,
-    revokeDeviceByMac,
+    revokeDevice as revokeDeviceStore,
     securityAlerts,
-    suspendDeviceByMac,
+    suspendDevice as suspendDeviceStore,
   } from '$lib/stores';
   import type { Device, DeviceStatus, SecurityAlert } from '$lib/types';
 
@@ -82,8 +82,8 @@
     actionMessage = '';
     actionError = '';
     try {
-      await suspendDeviceByMac(device.mac);
-      actionMessage = `Device ${device.mac} suspended`;
+      await suspendDeviceStore(device.deviceId);
+      actionMessage = `Device ${device.deviceId} suspended`;
     } catch (err) {
       actionError = err instanceof Error ? err.message : 'Device suspend failed';
     }
@@ -97,8 +97,8 @@
     actionMessage = '';
     actionError = '';
     try {
-      await revokeDeviceByMac(device.mac);
-      actionMessage = `Device ${device.mac} revoked`;
+      await revokeDeviceStore(device.deviceId); 
+      actionMessage = `Device ${device.deviceId} revoked`;
       confirmRevoke = null;
     } catch (err) {
       actionError = err instanceof Error ? err.message : 'Device revoke failed';
