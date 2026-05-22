@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -191,5 +192,67 @@ func (pm *ProvisioningManager) RevokeHandler(c *gin.Context) {
 		"device_id": device.DeviceID,
 		"status":    device.Status,
 		"timestamp": now.Format(time.RFC3339),
+	})
+}
+
+func (pm *ProvisioningManager) LoadDevicesFromFile(filePath string) error {
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return err
+	}
+
+	var records []DeviceRecord
+	if err := json.Unmarshal(data, &records); err != nil {
+		return err
+	}
+
+	pm.mu.Lock()
+	defer pm.mu.Unlock()
+	for i := range records {
+		pm.devices[records[i].DeviceID] = &records[i]
+	}
+	return nil
+}
+
+func (pm *ProvisioningManager) ListDevicesHandler(c *gin.Context) {
+	pm.mu.RLock()
+	defer pm.mu.RUnlock()
+
+	var deviceList []*DeviceRecord
+	for _, device := range pm.devices {
+		deviceList = append(deviceList, device)
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"devices": deviceList,
+	})
+}
+
+type SuspendDeviceReq struct {
+	DeviceID string `json:"device_id" binding:"required"`
+}
+
+func (pm *ProvisioningManager) SuspendHandler(c *gin.Context) {
+	var req SuspendDeviceReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload"})
+		return
+	}
+
+	pm.mu.Lock()
+	defer pm.mu.Unlock()
+
+	device, exists := pm.devices[req.DeviceID]
+	if !exists {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Device not found"})
+		return
+	}
+
+	device.Status = DeviceSuspended
+	pm.logAudit(req.DeviceID, "SUSPENDED", "Suspended by admin")
+
+	c.JSON(http.StatusOK, gin.H{
+		"device_id": device.DeviceID,
+		"status":    device.Status,
 	})
 }
