@@ -141,6 +141,7 @@
   }
 
   const LERP = 0.12;
+  // Seed initial positions at t=0 so template never renders empty
   let animSats: AnimSat[] = ALL_DEFS.map(d => {
     const [lon, lat] = satPos(d, 0);
     return { id: d.id, type: d.type, lon, lat, dLon: lon, dLat: lat };
@@ -148,10 +149,14 @@
 
   // ── D3 / SVG state ────────────────────────────────────────────────────────
   let svgEl: SVGSVGElement;
-  let width = 0;
-  let height = 0;
-  let projection: d3Geo.GeoProjection;
-  let pathGen: d3Geo.GeoPath;
+  // Start with fallback dimensions; onMount will re-init with real SVG size
+  let width = 1200;
+  let height = 600;
+  // Initialize projection immediately so template expressions never see undefined
+  let projection = d3Geo.geoEquirectangular()
+    .scale(width / (2 * Math.PI))
+    .translate([width / 2, height / 2]);
+  let pathGen = d3Geo.geoPath(projection);
   let currentTransform = d3Zoom.zoomIdentity;
 
   // Cached static SVG strings (world map, graticule) — rebuilt on resize only
@@ -189,6 +194,7 @@
 
   // ── Project lon/lat → screen coords including current zoom transform ──────
   function proj(lon: number, lat: number): [number, number] | null {
+    if (!projection) return null;   // guard: should not happen post-init
     const pt = projection([lon, lat]);
     if (!pt) return null;
     return [

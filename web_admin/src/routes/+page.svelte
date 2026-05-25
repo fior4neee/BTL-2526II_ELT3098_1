@@ -1,7 +1,8 @@
 <script lang="ts">
   import Topbar from '$lib/components/Topbar.svelte';
   import ConstellationMap from '$lib/components/ConstellationMap.svelte';
-  import { gateways, handovers, lastError, lastUpdated, metrics, securityAlerts } from '$lib/stores';
+  import WorldMapModal from '$lib/components/WorldMapModal.svelte';
+  import { gateways, handovers, lastError, lastUpdated, metrics, securityAlerts, worldMapOpen } from '$lib/stores';
   import type { Gateway } from '$lib/types';
 
   function statusClass(status: Gateway['status']) {
@@ -51,6 +52,11 @@
       })),
   ].slice(0, 5);
 </script>
+
+<!-- WorldMapModal renders here — at page root, outside ALL layout stacking contexts -->
+{#if $worldMapOpen}
+  <WorldMapModal onClose={() => worldMapOpen.set(false)} />
+{/if}
 
 <Topbar title="OVERVIEW" subtitle="VNU-LEO ISP control center" />
 

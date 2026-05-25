@@ -23,6 +23,8 @@ export const lastUpdated = writable<Date | null>(null);
 export const lastError = writable<string | null>(null);
 export const telemetryConnected = writable(false);
 export const telemetryMode = writable<'STREAM' | 'POLLING'>('POLLING');
+// UI navigation store: set true to open the global WorldMapModal from any component
+export const worldMapOpen = writable(false);
 export const metrics = writable<DashboardMetrics>({
   gatewaysOnline: 0,
   gatewaysOffline: 0,

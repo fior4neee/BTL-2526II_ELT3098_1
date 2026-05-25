@@ -1,7 +1,6 @@
 <script lang="ts">
   import { onDestroy, onMount } from 'svelte';
-  import { gateways, satellites, sessions } from '$lib/stores';
-  import WorldMapModal from './WorldMapModal.svelte';
+  import { gateways, satellites, sessions, worldMapOpen } from '$lib/stores';
 
   export let onClose: () => void;
 
@@ -141,24 +140,15 @@
   const vietnamPath = ringToPath(VN_MAIN);
   const islandPaths = VN_ISLANDS.map(ringToPath);
 
-  // ── World Map modal ───────────────────────────────────────────────────────
-  let showWorldMap = false;
-  function openWorldMap() { showWorldMap = true; }
-  function closeWorldMap() { showWorldMap = false; }
-
-  // Escape closes constellation (not world map when it's open)
+  // Escape closes this modal
   function handleKeydown(e: KeyboardEvent) {
-    if (e.key === 'Escape' && !showWorldMap) onClose();
+    if (e.key === 'Escape') onClose();
   }
 </script>
 
 <svelte:window on:keydown={handleKeydown} />
 
-{#if showWorldMap}
-  <WorldMapModal onClose={closeWorldMap} />
-{/if}
-
-<!-- Full-screen constellation modal (Vietnam locked view) -->
+<!-- Full-screen constellation modal (Vietnam corridor — fixed, z-40) -->
 <div
   class="fixed inset-0 z-40 bg-space-950 flex flex-col"
   role="dialog"
@@ -176,11 +166,11 @@
 
     <!-- Two top-right buttons -->
     <div class="flex items-center gap-2">
-      <!-- Expand to World Map button -->
+      <!-- Expand → open World Map (rendered at page level via store) -->
       <button
         type="button"
         id="constellation-expand"
-        on:click={openWorldMap}
+        on:click={() => worldMapOpen.set(true)}
         class="map-icon-btn map-icon-btn--cyan"
         aria-label="Expand to World Map"
         title="Show full world constellation map"
