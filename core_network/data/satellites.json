@@ -1,0 +1,77 @@
+[
+  {
+    "id": "SAT-LEO-001",
+    "name": "VNU-LEO-Alpha",
+    "location": { "lat": 21.0285, "lon": 105.8542, "alt": 550.0 }
+  },
+  {
+    "id": "SAT-LEO-002",
+    "name": "VNU-LEO-Beta",
+    "location": { "lat": 16.0471, "lon": 108.2062, "alt": 552.5 }
+  },
+  {
+    "id": "SAT-LEO-003",
+    "name": "VNU-LEO-Gamma",
+    "location": { "lat": 10.7626, "lon": 106.6601, "alt": 548.0 }
+  },
+  {
+    "id": "SAT-LEO-004",
+    "name": "VNU-LEO-Delta",
+    "location": { "lat": 22.8123, "lon": 104.9871, "alt": 551.2 }
+  },
+  {
+    "id": "SAT-LEO-005",
+    "name": "VNU-LEO-Epsilon",
+    "location": { "lat": 20.4567, "lon": 106.3321, "alt": 549.5 }
+  },
+  {
+    "id": "SAT-LEO-006",
+    "name": "VNU-LEO-Zeta",
+    "location": { "lat": 18.2345, "lon": 105.9012, "alt": 550.8 }
+  },
+  {
+    "id": "SAT-LEO-007",
+    "name": "VNU-LEO-Eta",
+    "location": { "lat": 14.3982, "lon": 108.9115, "alt": 547.3 }
+  },
+  {
+    "id": "SAT-LEO-008",
+    "name": "VNU-LEO-Theta",
+    "location": { "lat": 12.7123, "lon": 108.0456, "alt": 553.1 }
+  },
+  {
+    "id": "SAT-LEO-009",
+    "name": "VNU-LEO-Iota",
+    "location": { "lat": 9.8765, "lon": 105.2345, "alt": 551.0 }
+  },
+  {
+    "id": "SAT-LEO-010",
+    "name": "VNU-LEO-Kappa",
+    "location": { "lat": 19.5012, "lon": 107.5678, "alt": 549.0 }
+  },
+  {
+    "id": "SAT-LEO-011",
+    "name": "VNU-LEO-Lambda",
+    "location": { "lat": 15.0123, "lon": 110.2345, "alt": 552.4 }
+  },
+  {
+    "id": "SAT-LEO-012",
+    "name": "VNU-LEO-Mu",
+    "location": { "lat": 11.5678, "lon": 109.8901, "alt": 548.7 }
+  },
+  {
+    "id": "SAT-LEO-013",
+    "name": "VNU-LEO-Nu",
+    "location": { "lat": 8.5432, "lon": 104.9123, "alt": 550.5 }
+  },
+  {
+    "id": "SAT-LEO-014",
+    "name": "VNU-LEO-Xi",
+    "location": { "lat": 23.5678, "lon": 105.5123, "alt": 549.8 }
+  },
+  {
+    "id": "SAT-LEO-015",
+    "name": "VNU-LEO-Omicron",
+    "location": { "lat": 7.2123, "lon": 106.8765, "alt": 551.5 }
+  }
+]

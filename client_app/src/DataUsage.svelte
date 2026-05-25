@@ -1,56 +1,60 @@
 <script>
-  import { onDestroy, onMount } from 'svelte';
-  import { createLocationSample, createTelemetrySample } from './simulator.js';
-  import { invokeCommand, isTauri, listenEvent } from './tauriClient.js';
+  import { onDestroy } from 'svelte';
+  import { telemetry as netTelemetry, location as netLocation, activeDevice, DEVICES } from './network.js';
 
-  let tick = 1;
-  let usage = createLocationSample(tick);
-  let telemetry = createTelemetrySample(tick);
   let rateHistory = [];
   let alerts = [];
-  let timer;
-  let unlistenUsage = () => {};
-  let unlistenSignal = () => {};
+
+  $: dev = DEVICES.find(d => d.id === $activeDevice) || DEVICES[0];
+
+  $: usage = $netLocation || {
+    latitude: dev.home.lat,
+    longitude: dev.home.lon,
+    altitude_m: 14.0,
+    geofence_status: 'inside',
+    monthly_used_gb: 0,
+    monthly_cap_gb: 1500,
+    plan_name: dev.plan === 'Mobile' ? 'Mobile Unlimited 5G' : 'Fixed Business 300',
+    plan_type: dev.plan,
+    session_duration_s: 0,
+    session_down_gb: 0,
+    session_up_gb: 0,
+    estimated_cost_usd: 0
+  };
+
+  $: telemetry = $netTelemetry || { data_down_mbps: 0, data_up_mbps: 0 };
 
   $: quotaPct = Math.min(100, (usage.monthly_used_gb / usage.monthly_cap_gb) * 100);
   $: downBars = rateHistory.slice(-96).map((point) => Math.max(4, Math.min(100, point.down / 120 * 100)));
   $: upBars = rateHistory.slice(-96).map((point) => Math.max(4, Math.min(100, point.up / 35 * 100)));
-  $: fenceClass = usage.geofence_status === 'inside' ? 'connected' : 'searching';
-  $: positionStyle = `left:${50 + (usage.longitude - 105.8342) * 1200}%;top:${50 - (usage.latitude - 21.0278) * 1200}%`;
+  $: fenceClass = usage.geofence_status === 'inside' ? 'connected' : (usage.geofence_status === 'breach' ? 'outage' : 'searching');
+  $: positionStyle = `left:${50 + (usage.longitude - dev.home.lon) * 1200}%;top:${50 - (usage.latitude - dev.home.lat) * 1200}%`;
 
-  function ingestUsage(next) {
-    usage = next;
-    if (next.geofence_status !== 'inside') {
-      alerts = [{ id: next.timestamp_ms, text: 'Geo-fence boundary warning', detail: `${next.latitude.toFixed(4)}, ${next.longitude.toFixed(4)}` }, ...alerts].slice(0, 5);
+  const unsubTelemetry = netTelemetry.subscribe((val) => {
+    if (val) {
+      rateHistory = [...rateHistory.slice(-287), { down: val.data_down_mbps, up: val.data_up_mbps }];
+    } else {
+      rateHistory = [];
     }
-    if ((next.monthly_used_gb / next.monthly_cap_gb) > 0.85) {
-      alerts = [{ id: next.timestamp_ms + 1, text: 'Data limit approaching', detail: `${quotaPct.toFixed(1)}% used` }, ...alerts].slice(0, 5);
-    }
-  }
+  });
 
-  function ingestSignal(next) {
-    telemetry = next;
-    rateHistory = [...rateHistory.slice(-287), { down: next.data_down_mbps, up: next.data_up_mbps }];
-  }
-
-  onMount(async () => {
-    const initialUsage = await invokeCommand('get_location_snapshot');
-    if (initialUsage) ingestUsage(initialUsage);
-    unlistenUsage = await listenEvent('location-telemetry', ingestUsage);
-    unlistenSignal = await listenEvent('signal-telemetry', ingestSignal);
-    if (!isTauri) {
-      timer = setInterval(() => {
-        tick += 1;
-        ingestUsage(createLocationSample(tick));
-        ingestSignal(createTelemetrySample(tick));
-      }, 1000);
+  const unsubLocation = netLocation.subscribe((val) => {
+    if (val) {
+      if (val.geofence_status !== 'inside') {
+        const text = val.geofence_status === 'breach' ? 'Geo-fence BREACH' : 'Geo-fence warning';
+        alerts = [{ id: val.timestamp_ms, text, detail: `${val.latitude.toFixed(4)}, ${val.longitude.toFixed(4)}` }, ...alerts].slice(0, 5);
+      }
+      if ((val.monthly_used_gb / val.monthly_cap_gb) > 0.85) {
+        alerts = [{ id: val.timestamp_ms + 1, text: 'Data limit approaching', detail: `${quotaPct.toFixed(1)}% used` }, ...alerts].slice(0, 5);
+      }
+    } else {
+      alerts = [];
     }
   });
 
   onDestroy(() => {
-    clearInterval(timer);
-    unlistenUsage();
-    unlistenSignal();
+    unsubTelemetry();
+    unsubLocation();
   });
 </script>
 

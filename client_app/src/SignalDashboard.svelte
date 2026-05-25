@@ -1,20 +1,48 @@
 <script>
   import { onDestroy, onMount } from 'svelte';
-  import { createTelemetrySample } from './simulator.js';
-  import { invokeCommand, isTauri, listenEvent } from './tauriClient.js';
+  import { telemetry, events as networkEvents } from './network.js';
+  import { invokeCommand, isTauri } from './tauriClient.js';
 
   const maxHistory = 3600;
   const thresholds = [10, 12, 15, 18, 22, 26];
-  let sample = createTelemetrySample(1);
+
   let history = [];
-  let events = [];
   let selectedSatellite = 'auto';
   let steeringMode = 'auto';
   let signalThreshold = 12;
   let logLevel = 'info';
-  let tick = 1;
-  let unlisten = () => {};
-  let timer;
+
+  // Subscribe to telemetry store to maintain history array
+  const unsubTelemetry = telemetry.subscribe((val) => {
+    if (val) {
+      history = [...history.slice(-(maxHistory - 1)), val];
+    } else {
+      history = [];
+    }
+  });
+
+  // Reactive values derived from store states
+  $: sample = $telemetry || {
+    link_status: 'outage',
+    azimuth_deg: 0,
+    elevation_deg: 0,
+    beam_quality: 0,
+    c_n_ratio_db: 0,
+    carrier_power_dbm: -120,
+    eb_n0_db: 0,
+    ber: 0.5,
+    path_loss_db: 200,
+    eirp_dbw: 48,
+    modulation_scheme: 'None',
+    time_to_horizon_s: 0,
+    latency_ms: 0,
+    jitter_ms: 0,
+    packet_loss_pct: 0,
+    satellite_name: 'None',
+    gateway_name: 'None'
+  };
+
+  $: events = $networkEvents;
 
   $: cnPath = history
     .slice(-90)
@@ -39,28 +67,12 @@
   $: compassRotation = `rotate(${sample.azimuth_deg}deg)`;
   $: qualityPct = Math.round(sample.beam_quality * 100);
   $: statusClass = sample.link_status.toLowerCase();
-  $: visibleSatellites = ['auto', 'VNU-LEO-014', 'VNU-LEO-021', 'VNU-LEO-033', 'VNU-LEO-048'];
+  $: visibleSatellites = ['auto', 'VNU-LEO-Alpha', 'VNU-LEO-Beta', 'VNU-LEO-Gamma', 'VNU-LEO-Delta'];
   $: nextPasses = [
     { name: sample.satellite_name, eta: 'Now', elevation: sample.elevation_deg },
-    { name: 'VNU-LEO-052', eta: '+07:20', elevation: 42 },
-    { name: 'VNU-LEO-011', eta: '+18:45', elevation: 57 }
+    { name: 'VNU-LEO-Epsilon', eta: '+07:20', elevation: 42 },
+    { name: 'VNU-LEO-Lambda', eta: '+18:45', elevation: 57 }
   ];
-
-  function ingestTelemetry(next) {
-    sample = next;
-    history = [...history.slice(-(maxHistory - 1)), next];
-    if (next.handover_active) {
-      events = [
-        {
-          id: next.timestamp_ms,
-          text: `${next.satellite_name} via ${next.gateway_name}`,
-          packetLoss: next.packet_loss_pct,
-          latency: next.latency_ms
-        },
-        ...events
-      ].slice(0, 8);
-    }
-  }
 
   async function applySettings() {
     await invokeCommand('update_tracking_settings', {
@@ -73,21 +85,8 @@
     });
   }
 
-  onMount(async () => {
-    const initial = await invokeCommand('get_signal_snapshot');
-    if (initial) ingestTelemetry(initial);
-    unlisten = await listenEvent('signal-telemetry', ingestTelemetry);
-    if (!isTauri) {
-      timer = setInterval(() => {
-        tick += 1;
-        ingestTelemetry(createTelemetrySample(tick));
-      }, 100);
-    }
-  });
-
   onDestroy(() => {
-    clearInterval(timer);
-    unlisten();
+    unsubTelemetry();
   });
 </script>
 
