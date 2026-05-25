@@ -93,6 +93,11 @@ export async function revokeDevice(deviceId: string) {
   await refreshDevices();
 }
 
+export async function activateDevice(deviceId: string) {
+  await api.activateDevice(deviceId);
+  await refreshDevices();
+}
+
 export function startLiveUpdates(intervalMs = 5000) {
   void refreshAll();
 

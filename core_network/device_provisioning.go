@@ -256,3 +256,43 @@ func (pm *ProvisioningManager) SuspendHandler(c *gin.Context) {
 		"status":    device.Status,
 	})
 }
+
+// ActivateReq is the request body for POST /api/v1/devices/activate
+type ActivateReq struct {
+	DeviceID string `json:"device_id" binding:"required"`
+}
+
+// ActivateHandler processes POST /api/v1/devices/activate
+// Admin-only endpoint to reinstate a suspended device without requiring device-side cert flow.
+func (pm *ProvisioningManager) ActivateHandler(c *gin.Context) {
+	var req ActivateReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload"})
+		return
+	}
+
+	pm.mu.Lock()
+	defer pm.mu.Unlock()
+
+	device, exists := pm.devices[req.DeviceID]
+	if !exists {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Device not found"})
+		return
+	}
+
+	// Only suspended devices can be reactivated; revoked devices remain blocked
+	if device.Status == DeviceRevoked {
+		pm.logAudit(req.DeviceID, "ACTIVATE_DENIED", "Cannot reactivate a revoked device")
+		c.JSON(http.StatusForbidden, gin.H{"error": "Revoked devices cannot be reactivated"})
+		return
+	}
+
+	device.Status = DeviceActive
+	pm.logAudit(req.DeviceID, "ACTIVATED", "Reactivated by admin")
+
+	c.JSON(http.StatusOK, gin.H{
+		"device_id": device.DeviceID,
+		"status":    device.Status,
+	})
+}
+

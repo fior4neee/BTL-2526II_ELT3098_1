@@ -216,6 +216,16 @@ export async function revokeDevice(deviceId: string, reason = 'Revoked by admin'
   });
 }
 
+export async function activateDevice(deviceId: string): Promise<void> {
+  if (!DEVICES_ENABLED) return;
+  // POST /api/devices/activate — admin-only reinstatement of a suspended device.
+  // Requires only device_id; no CSR/signature ceremony needed for admin-initiated activation.
+  await requestJson(`/devices/activate`, {
+    method: 'POST',
+    body: JSON.stringify({ device_id: deviceId }),
+  });
+}
+
 export function telemetrySocketUrl(token: string | null, topics = 'gateways,sessions,handovers,security'): string {
   const params = new URLSearchParams({ topics });
   if (token) params.set('token', token);

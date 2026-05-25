@@ -15,7 +15,7 @@
 
   afterUpdate(() => {
     if (!chart) return;
-    chart.config.type = config.type ?? chart.config.type;
+    (chart.config as any).type = config.type ?? (chart.config as any).type;
     chart.config.data = config.data ?? chart.config.data;
     chart.config.options = config.options ?? chart.config.options;
     chart.update();

@@ -8,6 +8,7 @@
     revokeDevice as revokeDeviceStore,
     securityAlerts,
     suspendDevice as suspendDeviceStore,
+    activateDevice as activateDeviceStore,
   } from '$lib/stores';
   import type { Device, DeviceStatus, SecurityAlert } from '$lib/types';
 
@@ -53,7 +54,8 @@
 
   function statusBadge(status: DeviceStatus) {
     if (status === 'active') return 'badge-online';
-    if (status === 'registered' || status === 'suspended') return 'badge-warning';
+    if (status === 'registered') return 'badge-warning';
+    if (status === 'suspended') return 'badge-handover';
     return 'badge-offline';
   }
 
@@ -102,6 +104,21 @@
       confirmRevoke = null;
     } catch (err) {
       actionError = err instanceof Error ? err.message : 'Device revoke failed';
+    }
+  }
+
+  async function activateDevice(device: Device) {
+    if (!devicesEnabled) {
+      actionError = 'Devices endpoint is disabled';
+      return;
+    }
+    actionMessage = '';
+    actionError = '';
+    try {
+      await activateDeviceStore(device.deviceId);
+      actionMessage = `Device ${device.deviceId} reactivated`;
+    } catch (err) {
+      actionError = err instanceof Error ? err.message : 'Device activation failed';
     }
   }
 
@@ -186,6 +203,15 @@
               <td><span class="{statusBadge(device.status)}">{device.status}</span></td>
               <td>
                 <div class="flex gap-1">
+                  {#if device.status === 'suspended'}
+                    <button
+                      type="button"
+                      on:click={() => activateDevice(device)}
+                      class="px-2 py-1 font-mono text-xs text-cyan-400 border border-cyan-400/20 rounded hover:bg-cyan-400/10 transition-colors"
+                    >
+                      ACTIVATE
+                    </button>
+                  {/if}
                   {#if device.status === 'active' || device.status === 'registered'}
                     <button
                       type="button"

@@ -244,6 +244,7 @@ func main() {
 		v1.GET("/devices", provisioningManager.ListDevicesHandler)
 		v1.POST("/devices/register", provisioningManager.RegisterHandler)
 		v1.POST("/devices/verify", provisioningManager.VerifyHandler)
+		v1.POST("/devices/activate", provisioningManager.ActivateHandler)
 		v1.POST("/devices/revoke", provisioningManager.RevokeHandler)
 		v1.POST("/devices/suspend", provisioningManager.SuspendHandler)
 
