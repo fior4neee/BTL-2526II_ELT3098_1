@@ -214,6 +214,17 @@ func (pm *ProvisioningManager) LoadDevicesFromFile(filePath string) error {
 	return nil
 }
 
+// GetDeviceStatus returns current status for a device if present.
+func (pm *ProvisioningManager) GetDeviceStatus(deviceID string) (DeviceStatus, bool) {
+	pm.mu.RLock()
+	defer pm.mu.RUnlock()
+	device, exists := pm.devices[deviceID]
+	if !exists {
+		return DeviceRegistered, false
+	}
+	return device.Status, true
+}
+
 func (pm *ProvisioningManager) ListDevicesHandler(c *gin.Context) {
 	pm.mu.RLock()
 	defer pm.mu.RUnlock()

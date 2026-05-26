@@ -7,6 +7,7 @@ type DeployConfig struct {
 	AppPort            string `json:"app_port"`
 	GatewayDataPath    string `json:"gateway_data_path"`
 	SystemSettingsPath string `json:"settings_path"`
+	TlePath            string `json:"tle_path"`
 }
 
 // SystemSettings holds configurable parameters from settings.json
@@ -65,6 +66,19 @@ type Session struct {
 	NextGatewayID    string       `json:"next_gateway_id,omitempty"`
 	State            SessionState `json:"state"`
 	StartTime        time.Time    `json:"start_time"`
+	Location         Location     `json:"location"`
+	CnRatioDb        float64      `json:"cn_ratio_db,omitempty"`
+	DataDownMbps     float64      `json:"data_down_mbps,omitempty"`
+	DataUpMbps       float64      `json:"data_up_mbps,omitempty"`
+	DataMb           float64      `json:"data_mb,omitempty"`
+	PacketLossPct    float64      `json:"packet_loss_pct,omitempty"`
+	LatencyMs        float64      `json:"latency_ms,omitempty"`
+	JitterMs         float64      `json:"jitter_ms,omitempty"`
+	LinkStatus       string       `json:"link_status,omitempty"`
+	LastActivity     time.Time    `json:"last_activity,omitempty"`
+	DeviceStatus     DeviceStatus `json:"device_status,omitempty"`
+	HandoverActive   bool         `json:"handover_active,omitempty"`
+	LastHandoverAt   time.Time    `json:"last_handover_at,omitempty"`
 }
 
 // TelemetryEvent for real-time monitoring broadcasting
@@ -76,13 +90,29 @@ type TelemetryEvent struct {
 	Description string      `json:"description"`
 }
 
+// TelemetrySnapshot contains a full snapshot for WebSocket subscribers
+type TelemetrySnapshot struct {
+	Gateways   []Gateway         `json:"gateways,omitempty"`
+	Sessions   []Session         `json:"sessions,omitempty"`
+	Handovers  []HandoverEvent   `json:"handovers,omitempty"`
+	Satellites []Satellite       `json:"satellites,omitempty"`
+	Telemetry  []SessionTelemetry `json:"telemetry,omitempty"`
+	Timestamp  time.Time         `json:"timestamp"`
+}
+
 // --- ADDED FOR PHASE 1 EXTENSION: SATELLITES & HANDOVERS ---
 
 // Satellite represents the state and orbit information of a LEO satellite
 type Satellite struct {
-	ID       string   `json:"id"`
-	Name     string   `json:"name"`
-	Location Location `json:"location"`
+	ID        string    `json:"id"`
+	Name      string    `json:"name"`
+	Location  Location  `json:"location"`
+	Latitude  float64   `json:"latitude"`
+	Longitude float64   `json:"longitude"`
+	Altitude  float64   `json:"altitude"`
+	Elevation float64   `json:"elevation"`
+	Azimuth   float64   `json:"azimuth"`
+	Timestamp time.Time `json:"timestamp"`
 }
 
 // HandoverEvent tracks historical handover transitions between gateways
@@ -93,7 +123,39 @@ type HandoverEvent struct {
 	TargetGatewayID string    `json:"target_gateway_id"`
 	DurationMs      int64     `json:"duration_ms"`
 	Status          string    `json:"status"` // "success" or "failed"
+	PacketLossPct   float64   `json:"packet_loss_pct,omitempty"`
 	Timestamp       time.Time `json:"timestamp"`
+}
+
+// SessionTelemetry provides rich per-session metrics for client UI streaming
+type SessionTelemetry struct {
+	DeviceID        string       `json:"device_id"`
+	SessionID       string       `json:"session_id"`
+	GatewayID       string       `json:"gateway_id"`
+	GatewayName     string       `json:"gateway_name"`
+	SatelliteID     string       `json:"satellite_id"`
+	SatelliteName   string       `json:"satellite_name"`
+	Location        Location     `json:"location"`
+	AzimuthDeg      float64      `json:"azimuth_deg"`
+	ElevationDeg    float64      `json:"elevation_deg"`
+	RangeKm         float64      `json:"range_km"`
+	BeamQuality     float64      `json:"beam_quality"`
+	CarrierPowerDbm float64      `json:"carrier_power_dbm"`
+	CnRatioDb       float64      `json:"c_n_ratio_db"`
+	EbN0Db          float64      `json:"eb_n0_db"`
+	Ber             float64      `json:"ber"`
+	PathLossDb      float64      `json:"path_loss_db"`
+	EirpDbw         float64      `json:"eirp_dbw"`
+	Modulation      string       `json:"modulation_scheme"`
+	LinkStatus      string       `json:"link_status"`
+	TimeToHorizonS  int          `json:"time_to_horizon_s"`
+	HandoverActive  bool         `json:"handover_active"`
+	PacketLossPct   float64      `json:"packet_loss_pct"`
+	LatencyMs       float64      `json:"latency_ms"`
+	JitterMs        float64      `json:"jitter_ms"`
+	DataDownMbps    float64      `json:"data_down_mbps"`
+	DataUpMbps      float64      `json:"data_up_mbps"`
+	DeviceStatus    DeviceStatus `json:"device_status"`
 }
 
 // --- ADDED FOR PHASE 2: DEVICE PROVISIONING ---

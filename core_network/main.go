@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -45,16 +46,23 @@ func main() {
 		log.Fatalf("Critical: Failed to parse system settings JSON: %v\n", err)
 	}
 
-	// Load dynamic external satellite positioning vectors securely
-	satPath := "data/satellites.json"
-	satRaw, err := ioutil.ReadFile(satPath)
+	// Load TLE data for satellite propagation
+	tlePath := deployConfig.TlePath
+	if tlePath == "" {
+		timestamped := "outputs/internet/vnu_leo.tle"
+		timestampedAlt := "../outputs/internet/vnu_leo.tle"
+		if _, err := ioutil.ReadFile(timestamped); err == nil {
+			timestampedAlt = timestamped
+		}
+		tlePath = timestampedAlt
+	}
+	log.Printf("Loading TLE data from: %s\n", tlePath)
+	tleRecords, err := LoadTLE(tlePath)
 	if err != nil {
-		log.Fatalf("Critical: Could not load data/satellites.json: %v\n", err)
+		log.Fatalf("Critical: Could not load TLE file: %v\n", err)
 	}
-	var satellites []Satellite
-	if err := json.Unmarshal(satRaw, &satellites); err != nil {
-		log.Fatalf("Critical: Failed to parse satellite data: %v\n", err)
-	}
+	satTracker := NewSatelliteTracker(tleRecords)
+	satTracker.Update(time.Now().UTC())
 
 	provisioningManager := NewProvisioningManager(systemSettings)
 	provisioningManager.LoadDevicesFromFile("data/devices.json")
@@ -128,8 +136,11 @@ func main() {
 	}
 	log.Printf("Successfully initialized %d gateways.\n", len(gateways))
 
-	handoverManager := NewHandoverManager(gatewayPool, systemSettings, billingManager)
+	handoverManager := NewHandoverManager(gatewayPool, systemSettings, billingManager, provisioningManager, satTracker)
 	log.Println("Handover Manager is online with Geofence protection.")
+
+	telemetryEngine := NewTelemetryEngine(handoverManager, gatewayPool, satTracker, 5)
+	telemetryEngine.Start()
 
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.Default()
@@ -140,35 +151,61 @@ func main() {
 			c.JSON(http.StatusOK, gin.H{"status": "ok", "port": deployConfig.AppPort})
 		})
 		v1.GET("/gateways", func(c *gin.Context) {
-			c.JSON(http.StatusOK, gin.H{"data": gatewayPool.GetAllGateways()})
+			c.JSON(http.StatusOK, gin.H{"gateways": gatewayPool.GetAllGateways()})
 		})
 		v1.GET("/sessions", func(c *gin.Context) {
-			c.JSON(http.StatusOK, gin.H{"data": handoverManager.GetActiveSessions()})
+			c.JSON(http.StatusOK, gin.H{"sessions": handoverManager.GetActiveSessions()})
 		})
 
 		// 1. GET /api/v1/satellites (Matching api.md schemas)
 		v1.GET("/satellites", func(c *gin.Context) {
-			// Exception Handling: Verify if gateway_id query filter exists and matches configured locations
-			gwID := c.Query("gateway_id")
-			if gwID != "" {
-				found := false
-				for _, gw := range gateways {
-					if gw.ID == gwID {
-						found = true
-						break
-					}
-				}
-				if !found {
-					c.JSON(http.StatusNotFound, gin.H{"error": "Specified gateway node data not loaded"})
-					return
-				}
+			sats := satTracker.GetStates()
+			if len(sats) == 0 {
+				c.JSON(http.StatusNotFound, gin.H{"error": "no satellite data loaded"})
+				return
 			}
-			c.JSON(http.StatusOK, gin.H{"satellites": satellites})
+			c.JSON(http.StatusOK, gin.H{"satellites": sats})
 		})
 
 		// 2. GET /api/v1/handovers (Historical transitions lookup)
 		v1.GET("/handovers", func(c *gin.Context) {
-			c.JSON(http.StatusOK, gin.H{"handovers": handoverManager.GetHandoverHistory()})
+			fromRaw := c.Query("from")
+			toRaw := c.Query("to")
+			gwID := c.Query("gateway_id")
+
+			var fromTime, toTime time.Time
+			var err error
+			if fromRaw != "" {
+				fromTime, err = time.Parse(time.RFC3339, fromRaw)
+				if err != nil {
+					c.JSON(http.StatusBadRequest, gin.H{"error": "invalid from timestamp"})
+					return
+				}
+			}
+			if toRaw != "" {
+				toTime, err = time.Parse(time.RFC3339, toRaw)
+				if err != nil {
+					c.JSON(http.StatusBadRequest, gin.H{"error": "invalid to timestamp"})
+					return
+				}
+			}
+
+			handovers := handoverManager.GetHandoverHistory()
+			filtered := make([]HandoverEvent, 0, len(handovers))
+			for _, h := range handovers {
+				if !fromTime.IsZero() && h.Timestamp.Before(fromTime) {
+					continue
+				}
+				if !toTime.IsZero() && h.Timestamp.After(toTime) {
+					continue
+				}
+				if gwID != "" && h.SourceGatewayID != gwID && h.TargetGatewayID != gwID {
+					continue
+				}
+				filtered = append(filtered, h)
+			}
+
+			c.JSON(http.StatusOK, gin.H{"handovers": filtered})
 		})
 
 		// 3. GET /api/v1/telemetry/stream (WebSocket network pipeline protocol)
@@ -179,6 +216,16 @@ func main() {
 				c.JSON(http.StatusUnauthorized, gin.H{"error": "Missing short-lived authentication token parameter"})
 				return
 			}
+			topicsParam := c.Query("topics")
+			topicMap := map[string]bool{}
+			for _, t := range strings.Split(topicsParam, ",") {
+				if t = strings.TrimSpace(t); t != "" {
+					topicMap[t] = true
+				}
+			}
+			if len(topicMap) == 0 {
+				topicMap = map[string]bool{"gateways": true, "sessions": true, "handovers": true, "satellites": true, "telemetry": true}
+			}
 
 			ws, err := wsUpgrader.Upgrade(c.Writer, c.Request, nil)
 			if err != nil {
@@ -187,7 +234,7 @@ func main() {
 			}
 
 			clientChan := make(chan interface{}, 10)
-			handoverManager.registerWs <- clientChan
+			handoverManager.registerWs <- wsClient{ch: clientChan, topics: topicMap}
 
 			// Keeps reading/writing loops alive until the subscriber gracefully leaves
 			go func() {
@@ -215,12 +262,40 @@ func main() {
 				c.JSON(http.StatusBadRequest, gin.H{"error": "invalid payload"})
 				return
 			}
+			if status, ok := provisioningManager.GetDeviceStatus(req.DeviceID); ok {
+				if status == DeviceSuspended || status == DeviceRevoked {
+					c.JSON(http.StatusForbidden, gin.H{"error": "device blocked", "device_status": status})
+					return
+				}
+			}
 			sess, err := handoverManager.HandleRouterConnect(req.DeviceID, req.MAC, req.Location)
 			if err != nil {
 				c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
 				return
 			}
 			c.JSON(http.StatusOK, gin.H{"session": sess})
+		})
+
+		v1.POST("/router/update", func(c *gin.Context) {
+			var req struct {
+				DeviceID string   `json:"device_id" binding:"required"`
+				Location Location `json:"location" binding:"required"`
+			}
+			if err := c.ShouldBindJSON(&req); err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "invalid payload"})
+				return
+			}
+			if status, ok := provisioningManager.GetDeviceStatus(req.DeviceID); ok {
+				if status == DeviceSuspended || status == DeviceRevoked {
+					c.JSON(http.StatusForbidden, gin.H{"error": "device blocked", "device_status": status})
+					return
+				}
+			}
+			if err := handoverManager.UpdateDeviceLocation(req.DeviceID, req.Location); err != nil {
+				c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+				return
+			}
+			c.JSON(http.StatusOK, gin.H{"status": "ok"})
 		})
 
 		v1.POST("/handover/trigger", func(c *gin.Context) {

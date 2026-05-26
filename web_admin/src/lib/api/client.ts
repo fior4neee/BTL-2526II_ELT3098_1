@@ -226,7 +226,7 @@ export async function activateDevice(deviceId: string): Promise<void> {
   });
 }
 
-export function telemetrySocketUrl(token: string | null, topics = 'gateways,sessions,handovers,security'): string {
+export function telemetrySocketUrl(token: string | null, topics = 'gateways,sessions,handovers,satellites,telemetry'): string {
   const params = new URLSearchParams({ topics });
   if (token) params.set('token', token);
   const httpUrl = resolveApiUrl('/telemetry/stream');

@@ -148,52 +148,45 @@ async function run() {
     }
 
     console.log(`\n✅ ${activeSessions.length} session(s) established.`);
-    console.log('\n🔄 Starting handover simulation (every 6 seconds)...');
-    console.log('   Each router only handovers within its allowed gateways.');
+    console.log('\n📡 Streaming device locations (every 1 second)...');
+    console.log('   Core Network will trigger handovers based on satellite range.');
     console.log('   Press Ctrl+C to stop.\n');
 
-    // 4. Vòng lặp handover liên tục — mỗi router chọn gateway được phép theo địa lý
+    // 4. Vòng lặp cập nhật vị trí — để Core Network tự quyết handover theo vệ tinh
     let tick = 0;
     setInterval(async () => {
         tick++;
         if (activeSessions.length === 0) return;
 
-        // Chọn một session ngẫu nhiên để trigger handover
-        const { session, config } = pick(activeSessions);
+        for (const { session, config } of activeSessions) {
+            const drift = Math.sin(tick / 90) * 0.012;
+            const loc = config.plan === 'mobile'
+                ? pick(config.handoverLocs)
+                : { lat: config.home.lat + drift, lon: config.home.lon + drift, alt: 0 };
 
-        // Chỉ handover đến gateway khác trong danh sách được phép của router này
-        const candidates = config.allowedGateways.filter(gwId => {
-            // Nếu chỉ có 1 gateway được phép → vẫn trigger để sinh handover history
-            return config.allowedGateways.length === 1 || gwId !== session.current_gateway_id;
-        });
-        const targetGwId = pick(candidates);
-        const targetGw = gwById[targetGwId];
-        if (!targetGw) return;
-
-        // Chọn location tương ứng với gateway đích (phải trong geofence của router)
-        // Với mobile router → dùng location của gateway đích
-        // Với fixed router → dùng home location (vẫn nằm trong geofence)
-        const handoverLoc = config.plan === 'mobile'
-            ? pick(config.handoverLocs)
-            : config.home;
-
-        try {
-            await fetchJson('/handover/trigger', {
-                method: 'POST',
-                body: JSON.stringify({
-                    session_id: session.session_id,
-                    target_gateway_id: targetGwId,
-                    location: handoverLoc,
-                }),
-            });
-            // Cập nhật state nội bộ simulator
-            session.current_gateway_id = targetGwId;
-            const arrow = `${targetGwId.padEnd(12)}`;
-            console.log(`  [T+${String(tick * 6).padStart(4)}s] ✅ ${config.id.slice(-3)} → ${arrow} (${session.session_id})`);
-        } catch (e) {
-            console.warn(`  [T+${String(tick * 6).padStart(4)}s] ⚠️  ${config.id.slice(-3)} handover failed: ${e.message.slice(0, 80)}`);
+            try {
+                await fetchJson('/router/update', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        device_id: config.id,
+                        location: loc,
+                    }),
+                });
+            } catch (e) {
+                console.warn(`  ⚠️  ${config.id} update failed: ${e.message.slice(0, 80)}`);
+            }
         }
-    }, 6000);
+
+        if (tick % 10 === 0) {
+            try {
+                const sessionsResp = await fetchJson('/sessions');
+                const sessions = sessionsResp.sessions ?? sessionsResp.data ?? [];
+                console.log(`  [T+${String(tick).padStart(4)}s] Active sessions: ${sessions.length}`);
+            } catch {
+                // ignore
+            }
+        }
+    }, 1000);
 }
 
 run().catch(err => {
