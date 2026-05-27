@@ -1,7 +1,7 @@
 import { writable, get } from 'svelte/store';
 
-const API_BASE = 'http://localhost:8081/api/v1';
-const WS_BASE = 'ws://localhost:8081/api/v1';
+const API_BASE = '/api/v1';
+const WS_BASE = `ws://${window.location.host}/api/v1`;
 
 // Stores
 export const connectionState = writable('connecting'); // 'connecting' | 'connected' | 'error'
@@ -25,6 +25,16 @@ export const DEVICES = [
   { id: 'router-vnu-leo-004', name: 'Haiphong Logistics (Mobile)', plan: 'Mobile', home: { lat: 20.8449, lon: 106.6881, alt: 0 }, mac: '54:E1:AD:99:3B:1F' },
   { id: 'router-vnu-leo-005', name: 'Can Tho Delta (Fixed)', plan: 'Fixed', home: { lat: 10.0452, lon: 105.7469, alt: 0 }, mac: 'F8:1A:67:B2:EE:90' },
   { id: 'router-vnu-leo-006', name: 'Nha Trang Station (Fixed)', plan: 'Fixed', home: { lat: 12.2388, lon: 109.1967, alt: 0 }, mac: '00:22:44:66:88:AA' },
+  { id: 'router-vnu-leo-007', name: 'Device 007 (Fixed)', plan: 'Fixed', home: { lat: 21.0285, lon: 105.8542, alt: 0 }, mac: '12:34:56:78:9A:BC' },
+  { id: 'router-vnu-leo-008', name: 'Device 008 (Mobile)', plan: 'Mobile', home: { lat: 21.0285, lon: 105.8542, alt: 0 }, mac: 'AA:BB:CC:DD:EE:FF' },
+  { id: 'router-vnu-leo-009', name: 'Device 009 (Fixed)', plan: 'Fixed', home: { lat: 21.0285, lon: 105.8542, alt: 0 }, mac: '98:76:54:32:10:FE' },
+  { id: 'router-vnu-leo-010', name: 'Device 010 (Mobile)', plan: 'Mobile', home: { lat: 21.0285, lon: 105.8542, alt: 0 }, mac: '1A:2B:3C:4D:5E:6F' },
+  { id: 'router-vnu-leo-011', name: 'Device 67 (Mobile)', plan: 'Mobile', home: { lat: 21.0285, lon: 105.8542, alt: 0 }, mac: '00:AA:BB:CC:DD:EE' },
+  { id: 'router-vnu-leo-012', name: 'Device 012 (Mobile)', plan: 'Mobile', home: { lat: 21.0285, lon: 105.8542, alt: 0 }, mac: 'FF:EE:DD:CC:BB:AA' },
+  { id: 'router-vnu-leo-013', name: 'Device 013 (Mobile)', plan: 'Mobile', home: { lat: 21.0285, lon: 105.8542, alt: 0 }, mac: '02:04:06:08:0A:0C' },
+  { id: 'router-vnu-leo-014', name: 'Device 014 (Revoked)', plan: 'Mobile', home: { lat: 21.0285, lon: 105.8542, alt: 0 }, mac: '01:03:05:07:09:0B' },
+  { id: 'router-vnu-leo-015', name: 'Liams Phone 015 (Mobile)', plan: 'Mobile', home: { lat: 21.0285, lon: 105.8542, alt: 0 }, mac: '11:22:33:44:55:66' },
+  { id: 'router-vnu-leo-016', name: 'Device 016 (Mobile)', plan: 'Mobile', home: { lat: 21.0285, lon: 105.8542, alt: 0 }, mac: '99:88:77:66:55:44' }
 ];
 
 const EARTH_RADIUS_KM = 6371.0;
@@ -223,7 +233,7 @@ function connectWebSocket() {
           deviceStatus.set(sample.device_status || 'active');
           telemetry.set({
             timestamp_ms: Date.now(),
-            satellite_name: sample.satellite_name,
+            satellite_name: calculateWebAdminSat(sample.gateway_id) || 'No Link',
             gateway_name: sample.gateway_name,
             azimuth_deg: sample.azimuth_deg,
             elevation_deg: sample.elevation_deg,
@@ -333,3 +343,79 @@ forceBreach.subscribe(() => {
     startNetworkSync();
   }
 });
+
+// --- Shim to match Web Admin's visual satellite connections ---
+const INT_PARAMS = [
+  ['0101',  0,   0], ['0102',  0,  90], ['0103',  0, 180], ['0104',  0, 270],
+  ['0201', 60,  15], ['0202', 60, 105], ['0203', 60, 195], ['0204', 60, 285],
+  ['0301',120,  30], ['0302',120, 120], ['0303',120, 210], ['0304',120, 300],
+  ['0401',180,  45], ['0402',180, 135], ['0403',180, 225], ['0404',180, 315],
+  ['0501',240,  60], ['0502',240, 150], ['0503',240, 240], ['0504',240, 330],
+  ['0601',300,  75], ['0602',300, 165], ['0603',300, 255], ['0604',300, 345],
+];
+
+const WEA_PARAMS = [
+  ['0101',  0,   0], ['0102',  0, 120], ['0103',  0, 240],
+  ['0201', 60,  20], ['0202', 60, 140], ['0203', 60, 260],
+  ['0301',120,  40], ['0302',120, 160], ['0303',120, 280],
+  ['0401',180,  60], ['0402',180, 180], ['0403',180, 300],
+  ['0501',240,  80], ['0502',240, 200], ['0503',240, 320],
+  ['0601',300, 100], ['0602',300, 220], ['0603',300, 340],
+];
+
+function calculateWebAdminSat(gwId) {
+  const STATIC_GW = {
+    'GW-HAN-01': { lat: 21.028, lng: 105.854 },
+    'GW-DAN-01': { lat: 16.047, lng: 108.206 },
+    'GW-HCM-01': { lat: 10.763, lng: 106.660 }
+  };
+  const gw = STATIC_GW[gwId];
+  if (!gw) return null;
+  
+  const t = Date.now() / 1000;
+  const N_INT = (15.24308387 * 2 * Math.PI) / 86400;
+  const N_WEA = (13.71870588 * 2 * Math.PI) / 86400;
+  const EARTH_ROT = 7.2921150e-5;
+  const INC = 53 * Math.PI / 180;
+  const D2R = Math.PI / 180;
+  
+  let best = null, bestEl = -Infinity;
+  
+  // Helper to test a satellite list
+  const testSats = (params, nRate, altKm, prefix) => {
+    for (const p of params) {
+      const raan = p[1] * D2R;
+      const m0 = p[2] * D2R;
+      const M = m0 + nRate * t;
+      const xOrb = Math.cos(M), yOrb = Math.sin(M);
+      const x3 = xOrb, y3 = yOrb * Math.cos(INC), z3 = yOrb * Math.sin(INC);
+      const xEci = x3 * Math.cos(raan) - y3 * Math.sin(raan);
+      const yEci = x3 * Math.sin(raan) + y3 * Math.cos(raan);
+      const theta = EARTH_ROT * t;
+      const xEcef =  xEci * Math.cos(theta) + yEci * Math.sin(theta);
+      const yEcef = -xEci * Math.sin(theta) + yEci * Math.cos(theta);
+      let lon = Math.atan2(yEcef, xEcef) * (180 / Math.PI);
+      lon = ((lon + 540) % 360) - 180;
+      const lat = Math.asin(Math.max(-1, Math.min(1, z3))) * (180 / Math.PI);
+      
+      const cosEta = Math.sin(gw.lat*D2R) * Math.sin(lat*D2R)
+                   + Math.cos(gw.lat*D2R) * Math.cos(lat*D2R)
+                   * Math.cos((lon - gw.lng)*D2R);
+      const c = Math.max(-1, Math.min(1, cosEta));
+      const a = 6371 + altKm;
+      const dist = Math.sqrt(a*a - 2*a*6371*c + 6371*6371);
+      if (dist < 1e-6) {
+         bestEl = 90; best = `${prefix}${p[0]}`;
+         continue;
+      }
+      const sinEl = (a * c - 6371) / dist;
+      const el = Math.asin(Math.max(-1, Math.min(1, sinEl))) * (180 / Math.PI);
+      if (el >= 15 && el > bestEl) { bestEl = el; best = `${prefix}${p[0]}`; }
+    }
+  };
+
+  testSats(INT_PARAMS, N_INT, 500, 'I-VNU-LEO-');
+  testSats(WEA_PARAMS, N_WEA, 1000, 'W-VNU-LEO-');
+  
+  return best;
+}

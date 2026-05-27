@@ -79,13 +79,16 @@ h1 { margin: 0; font-size: clamp(1.35rem, 2vw, 2rem); font-weight: 760; letter-s
 }
 .compass-core {
   position: absolute;
-  inset: 38%;
+  inset: 32%;
   border-radius: 50%;
   display: grid;
   place-items: center;
   background: #17202a;
   color: white;
   font-weight: 760;
+  text-align: center;
+  white-space: nowrap;
+  font-size: 0.9em;
 }
 .elevation-dial {
   position: relative;
@@ -140,7 +143,9 @@ line { stroke: #d6dee6; stroke-width: 1; vector-effect: non-scaling-stroke; }
 .timeline small, .event-log small, .event-log p { color: #6f7d89; margin: 0; }
 .settings-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-bottom: 12px; }
 .settings-grid label { display: grid; gap: 5px; color: #64727f; font-size: 0.86rem; }
-select, input { width: 100%; border: 1px solid #c9d3dc; border-radius: 7px; padding: 9px 10px; background: white; color: #17202a; }
+select, input[type="text"], input[type="number"] { width: 100%; border: 1px solid #c9d3dc; border-radius: 7px; padding: 9px 10px; background: white; color: #17202a; }
+.breach-control { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; color: #4c5966; cursor: pointer; white-space: nowrap; }
+.breach-control input { width: auto; margin: 0; }
 .diagnostics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 12px 0; }
 .diagnostics span { padding: 10px; border-radius: 8px; background: #f3f6f9; color: #63717f; }
 .diagnostics strong { display: block; color: #17202a; margin-top: 3px; }

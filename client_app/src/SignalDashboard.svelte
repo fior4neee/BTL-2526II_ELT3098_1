@@ -2,6 +2,7 @@
   import { onDestroy, onMount } from 'svelte';
   import { createTelemetrySample } from './simulator.js';
   import { invokeCommand, isTauri, listenEvent } from './tauriClient.js';
+  import { telemetry as realTelemetry, connectionState } from './network.js';
 
   const maxHistory = 3600;
   const thresholds = [10, 12, 15, 18, 22, 26];
@@ -47,6 +48,7 @@
   ];
 
   function ingestTelemetry(next) {
+    if (!next) return;
     sample = next;
     history = [...history.slice(-(maxHistory - 1)), next];
     if (next.handover_active) {
@@ -60,6 +62,10 @@
         ...events
       ].slice(0, 8);
     }
+  }
+
+  $: if ($connectionState === 'connected' && $realTelemetry) {
+    ingestTelemetry($realTelemetry);
   }
 
   async function applySettings() {
@@ -79,8 +85,10 @@
     unlisten = await listenEvent('signal-telemetry', ingestTelemetry);
     if (!isTauri) {
       timer = setInterval(() => {
-        tick += 1;
-        ingestTelemetry(createTelemetrySample(tick));
+        if ($connectionState !== 'connected') {
+          tick += 1;
+          ingestTelemetry(createTelemetrySample(tick));
+        }
       }, 100);
     }
   });
@@ -100,7 +108,7 @@
     <div class="compass" aria-label="Antenna compass">
       <span class="north">N</span><span class="east">E</span><span class="south">S</span><span class="west">W</span>
       <div class="needle" style:transform={compassRotation}></div>
-      <div class="compass-core">{Math.round(sample.elevation_deg)} deg</div>
+      <div class="compass-core">{Math.round(sample.azimuth_deg)} deg</div>
     </div>
     <div class="elevation-dial">
       <div class="elevation-fill" style:height={`${Math.min(100, sample.elevation_deg)}%`}></div>

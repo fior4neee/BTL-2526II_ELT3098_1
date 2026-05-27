@@ -2,6 +2,7 @@
   import { onDestroy, onMount } from 'svelte';
   import { createLocationSample, createTelemetrySample } from './simulator.js';
   import { invokeCommand, isTauri, listenEvent } from './tauriClient.js';
+  import { location as realLocation, telemetry as realTelemetry, connectionState } from './network.js';
 
   let tick = 1;
   let usage = createLocationSample(tick);
@@ -19,6 +20,7 @@
   $: positionStyle = `left:${50 + (usage.longitude - 105.8342) * 1200}%;top:${50 - (usage.latitude - 21.0278) * 1200}%`;
 
   function ingestUsage(next) {
+    if (!next) return;
     usage = next;
     if (next.geofence_status !== 'inside') {
       alerts = [{ id: next.timestamp_ms, text: 'Geo-fence boundary warning', detail: `${next.latitude.toFixed(4)}, ${next.longitude.toFixed(4)}` }, ...alerts].slice(0, 5);
@@ -29,8 +31,14 @@
   }
 
   function ingestSignal(next) {
+    if (!next) return;
     telemetry = next;
     rateHistory = [...rateHistory.slice(-287), { down: next.data_down_mbps, up: next.data_up_mbps }];
+  }
+
+  $: if ($connectionState === 'connected') {
+    if ($realLocation) ingestUsage($realLocation);
+    if ($realTelemetry) ingestSignal($realTelemetry);
   }
 
   onMount(async () => {
@@ -40,9 +48,11 @@
     unlistenSignal = await listenEvent('signal-telemetry', ingestSignal);
     if (!isTauri) {
       timer = setInterval(() => {
-        tick += 1;
-        ingestUsage(createLocationSample(tick));
-        ingestSignal(createTelemetrySample(tick));
+        if ($connectionState !== 'connected') {
+          tick += 1;
+          ingestUsage(createLocationSample(tick));
+          ingestSignal(createTelemetrySample(tick));
+        }
       }, 1000);
     }
   });

@@ -6,7 +6,14 @@ export default defineConfig({
   clearScreen: false,
   server: {
     strictPort: true,
-    port: 1420
+    port: 1420,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8081',
+        changeOrigin: true,
+        ws: true
+      }
+    }
   },
   envPrefix: ['VITE_', 'TAURI_'],
   build: {

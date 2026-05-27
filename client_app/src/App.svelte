@@ -1,9 +1,14 @@
 <script>
+  import { onMount } from 'svelte';
   import SignalDashboard from './SignalDashboard.svelte';
   import DataUsage from './DataUsage.svelte';
   import { initializeNetwork, connectionState, activeDevice, DEVICES, forceBreach, deviceStatus } from './network.js';
 
   let activeView = 'signal';
+
+  onMount(() => {
+    initializeNetwork();
+  });
 </script>
 
 <main class="app-shell">
