@@ -69,53 +69,34 @@ func main() {
 
 	billingManager := NewBillingManager(systemSettings)
 
-	// Router 001 (Fixed - Hanoi)
-	billingManager.AddMockSubscription(&SubscriptionRecord{
-		DeviceID:        "router-vnu-leo-001",
-		Plan:            PlanFixed,
-		AllowedRadiusKm: 50.0,
-		HomeLocation:    &Location{Latitude: 21.0285, Longitude: 105.8542, Altitude: 0},
-	})
+	// Mock Subscriptions for all 12 testing devices
+	devicePlans := map[string]struct {
+		Plan PlanType
+		Lat  float64
+		Lng  float64
+	}{
+		"router-vnu-leo-001": {PlanFixed, 21.0285, 105.8542},
+		"router-vnu-leo-002": {PlanFixed, 21.0285, 105.8542},
+		"router-vnu-leo-003": {PlanFixed, 16.0470, 108.2062},
+		"router-vnu-leo-004": {PlanMobile, 20.8449, 106.6881},
+		"router-vnu-leo-005": {PlanFixed, 10.7626, 106.6601},
+		"router-vnu-leo-006": {PlanFixed, 12.2388, 109.1967},
+		"router-vnu-leo-007": {PlanMobile, 21.0285, 105.8542},
+		"router-vnu-leo-008": {PlanMobile, 16.0470, 108.2062},
+		"router-vnu-leo-009": {PlanMobile, 21.0285, 105.8542},
+		"router-vnu-leo-010": {PlanFixed, 10.7626, 106.6601},
+		"router-vnu-leo-011": {PlanMobile, 21.0285, 105.8542},
+		"router-vnu-leo-014": {PlanFixed, 16.0470, 108.2062},
+	}
 
-	// Router 002 (Fixed - Hanoi)
-	billingManager.AddMockSubscription(&SubscriptionRecord{
-		DeviceID:        "router-vnu-leo-002",
-		Plan:            PlanFixed,
-		AllowedRadiusKm: 50.0,
-		HomeLocation:    &Location{Latitude: 21.0285, Longitude: 105.8542, Altitude: 0},
-	})
-
-	// Router 003 (Fixed - Da Nang) - Note: Provisioning status is revoked
-	billingManager.AddMockSubscription(&SubscriptionRecord{
-		DeviceID:        "router-vnu-leo-003",
-		Plan:            PlanFixed,
-		AllowedRadiusKm: 50.0,
-		HomeLocation:    &Location{Latitude: 16.0471, Longitude: 108.2062, Altitude: 0},
-	})
-
-	// Router 004 (Mobile - Haiphong Base) - This one will NEVER trigger a geofence error!
-	billingManager.AddMockSubscription(&SubscriptionRecord{
-		DeviceID:        "router-vnu-leo-004",
-		Plan:            PlanMobile,
-		AllowedRadiusKm: 0.0,
-		HomeLocation:    &Location{Latitude: 20.8449, Longitude: 106.6881, Altitude: 0},
-	})
-
-	// Router 005 (Fixed - Can Tho)
-	billingManager.AddMockSubscription(&SubscriptionRecord{
-		DeviceID:        "router-vnu-leo-005",
-		Plan:            PlanFixed,
-		AllowedRadiusKm: 50.0,
-		HomeLocation:    &Location{Latitude: 10.0452, Longitude: 105.7469, Altitude: 0},
-	})
-
-	// Router 006 (Fixed - Nha Trang) - Note: Provisioning status is revoked
-	billingManager.AddMockSubscription(&SubscriptionRecord{
-		DeviceID:        "router-vnu-leo-006",
-		Plan:            PlanFixed,
-		AllowedRadiusKm: 50.0,
-		HomeLocation:    &Location{Latitude: 12.2388, Longitude: 109.1967, Altitude: 0},
-	})
+	for id, info := range devicePlans {
+		billingManager.AddMockSubscription(&SubscriptionRecord{
+			DeviceID:        id,
+			Plan:            info.Plan,
+			AllowedRadiusKm: 50.0,
+			HomeLocation:    &Location{Latitude: info.Lat, Longitude: info.Lng, Altitude: 0},
+		})
+	}
 
 	gatewayPool := NewGatewayPool(systemSettings)
 

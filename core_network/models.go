@@ -175,6 +175,8 @@ type DeviceRecord struct {
 	DeviceID          string       `json:"device_id"`
 	MACAddress        string       `json:"mac"`
 	HardwareID        string       `json:"hw_id"`
+	Model             string       `json:"model,omitempty"`
+	Owner             string       `json:"owner,omitempty"`
 	Status            DeviceStatus `json:"status"`
 	ProvisioningToken string       `json:"provisioning_token"`
 	RegisteredAt      time.Time    `json:"registered_at"`

@@ -22,19 +22,16 @@ export const deviceStatus = writable('unknown');
 export const DEVICES = [
   { id: 'router-vnu-leo-001', name: 'Hanoi Office (Fixed)', plan: 'Fixed', home: { lat: 21.0285, lon: 105.8542, alt: 0 }, mac: '00:1B:44:11:3A:B7' },
   { id: 'router-vnu-leo-002', name: 'Hanoi Branch (Fixed)', plan: 'Fixed', home: { lat: 21.0285, lon: 105.8542, alt: 0 }, mac: '3C:A8:2A:FF:11:0C' },
+  { id: 'router-vnu-leo-003', name: 'Danang Hub (Fixed)', plan: 'Fixed', home: { lat: 16.0470, lon: 108.2062, alt: 0 }, mac: '12:34:56:78:9A:BC' },
   { id: 'router-vnu-leo-004', name: 'Haiphong Logistics (Mobile)', plan: 'Mobile', home: { lat: 20.8449, lon: 106.6881, alt: 0 }, mac: '54:E1:AD:99:3B:1F' },
-  { id: 'router-vnu-leo-005', name: 'Can Tho Delta (Fixed)', plan: 'Fixed', home: { lat: 10.0452, lon: 105.7469, alt: 0 }, mac: 'F8:1A:67:B2:EE:90' },
+  { id: 'router-vnu-leo-005', name: 'HCMC Headquarters (Fixed)', plan: 'Fixed', home: { lat: 10.7626, lon: 106.6601, alt: 0 }, mac: 'F8:1A:67:B2:EE:90' },
   { id: 'router-vnu-leo-006', name: 'Nha Trang Station (Fixed)', plan: 'Fixed', home: { lat: 12.2388, lon: 109.1967, alt: 0 }, mac: '00:22:44:66:88:AA' },
-  { id: 'router-vnu-leo-007', name: 'Device 007 (Fixed)', plan: 'Fixed', home: { lat: 21.0285, lon: 105.8542, alt: 0 }, mac: '12:34:56:78:9A:BC' },
-  { id: 'router-vnu-leo-008', name: 'Device 008 (Mobile)', plan: 'Mobile', home: { lat: 21.0285, lon: 105.8542, alt: 0 }, mac: 'AA:BB:CC:DD:EE:FF' },
-  { id: 'router-vnu-leo-009', name: 'Device 009 (Fixed)', plan: 'Fixed', home: { lat: 21.0285, lon: 105.8542, alt: 0 }, mac: '98:76:54:32:10:FE' },
-  { id: 'router-vnu-leo-010', name: 'Device 010 (Mobile)', plan: 'Mobile', home: { lat: 21.0285, lon: 105.8542, alt: 0 }, mac: '1A:2B:3C:4D:5E:6F' },
-  { id: 'router-vnu-leo-011', name: 'Device 67 (Mobile)', plan: 'Mobile', home: { lat: 21.0285, lon: 105.8542, alt: 0 }, mac: '00:AA:BB:CC:DD:EE' },
-  { id: 'router-vnu-leo-012', name: 'Device 012 (Mobile)', plan: 'Mobile', home: { lat: 21.0285, lon: 105.8542, alt: 0 }, mac: 'FF:EE:DD:CC:BB:AA' },
-  { id: 'router-vnu-leo-013', name: 'Device 013 (Mobile)', plan: 'Mobile', home: { lat: 21.0285, lon: 105.8542, alt: 0 }, mac: '02:04:06:08:0A:0C' },
-  { id: 'router-vnu-leo-014', name: 'Device 014 (Revoked)', plan: 'Mobile', home: { lat: 21.0285, lon: 105.8542, alt: 0 }, mac: '01:03:05:07:09:0B' },
-  { id: 'router-vnu-leo-015', name: 'Liams Phone 015 (Mobile)', plan: 'Mobile', home: { lat: 21.0285, lon: 105.8542, alt: 0 }, mac: '11:22:33:44:55:66' },
-  { id: 'router-vnu-leo-016', name: 'Device 016 (Mobile)', plan: 'Mobile', home: { lat: 21.0285, lon: 105.8542, alt: 0 }, mac: '99:88:77:66:55:44' }
+  { id: 'router-vnu-leo-007', name: 'Liams Phone (Mobile)', plan: 'Mobile', home: { lat: 21.0285, lon: 105.8542, alt: 0 }, mac: 'AA:BB:CC:DD:EE:FF' },
+  { id: 'router-vnu-leo-008', name: 'Test Router (Mobile)', plan: 'Mobile', home: { lat: 16.0470, lon: 108.2062, alt: 0 }, mac: '98:76:54:32:10:FE' },
+  { id: 'router-vnu-leo-009', name: 'Stolen Device 009 (Mobile)', plan: 'Mobile', home: { lat: 21.0285, lon: 105.8542, alt: 0 }, mac: 'FE:DC:BA:98:76:54' },
+  { id: 'router-vnu-leo-010', name: 'Unpaid Bill 010 (Fixed)', plan: 'Fixed', home: { lat: 10.7626, lon: 106.6601, alt: 0 }, mac: '1A:2B:3C:4D:5E:6F' },
+  { id: 'router-vnu-leo-011', name: 'Unknown Device 011 (Mobile)', plan: 'Mobile', home: { lat: 21.0285, lon: 105.8542, alt: 0 }, mac: '00:AA:BB:CC:DD:EE' },
+  { id: 'router-vnu-leo-014', name: 'Compromised Router 014 (Fixed)', plan: 'Fixed', home: { lat: 16.0470, lon: 108.2062, alt: 0 }, mac: '01:03:05:07:09:0B' }
 ];
 
 const EARTH_RADIUS_KM = 6371.0;
@@ -231,25 +228,27 @@ function connectWebSocket() {
         const sample = data.telemetry.find(t => t.device_id === devId);
         if (sample) {
           deviceStatus.set(sample.device_status || 'active');
+          const visualSat = calculateWebAdminSat(sample.gateway_id);
+          const isNoLink = !visualSat;
           telemetry.set({
             timestamp_ms: Date.now(),
-            satellite_name: calculateWebAdminSat(sample.gateway_id) || 'No Link',
+            satellite_name: visualSat || 'No Link',
             gateway_name: sample.gateway_name,
             azimuth_deg: sample.azimuth_deg,
-            elevation_deg: sample.elevation_deg,
-            beam_quality: sample.beam_quality,
-            carrier_power_dbm: sample.carrier_power_dbm,
-            c_n_ratio_db: sample.c_n_ratio_db,
-            eb_n0_db: sample.eb_n0_db,
-            ber: sample.ber,
+            elevation_deg: isNoLink ? 0 : sample.elevation_deg,
+            beam_quality: isNoLink ? 0 : sample.beam_quality,
+            carrier_power_dbm: isNoLink ? -120 : sample.carrier_power_dbm,
+            c_n_ratio_db: isNoLink ? 0 : sample.c_n_ratio_db,
+            eb_n0_db: isNoLink ? 0 : sample.eb_n0_db,
+            ber: isNoLink ? 1e-1 : sample.ber,
             path_loss_db: sample.path_loss_db,
             eirp_dbw: sample.eirp_dbw,
-            modulation_scheme: sample.modulation_scheme,
-            link_status: sample.link_status,
-            time_to_horizon_s: sample.time_to_horizon_s,
+            modulation_scheme: isNoLink ? 'None' : sample.modulation_scheme,
+            link_status: isNoLink ? 'outage' : sample.link_status,
+            time_to_horizon_s: 0,
             handover_active: sample.handover_active,
-            packet_loss_pct: sample.packet_loss_pct,
-            latency_ms: sample.latency_ms,
+            packet_loss_pct: isNoLink ? 0 : sample.packet_loss_pct,
+            latency_ms: isNoLink ? 0 : sample.latency_ms,
             jitter_ms: sample.jitter_ms,
             data_down_mbps: sample.data_down_mbps,
             data_up_mbps: sample.data_up_mbps

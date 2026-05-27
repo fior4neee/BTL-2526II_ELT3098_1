@@ -261,7 +261,8 @@ func (hm *HandoverManager) selectBestLink(loc Location, sats []Satellite) *linkC
 			if gwElev < minElev {
 				continue
 			}
-			score := elev + (gwElev * 0.5)
+			distKm := hm.billingManager.calculateDistance(loc, gw.Location)
+			score := elev + (gwElev * 0.5) - (distKm * 0.1)
 			gwCopy := gw
 			cand := &linkCandidate{
 				Satellite:  sat,
@@ -286,8 +287,11 @@ func (hm *HandoverManager) UpdateSessions(now time.Time, sats []Satellite, dtSec
 
 	telemetry := make([]SessionTelemetry, 0, len(hm.sessions))
 	for _, session := range hm.sessions {
+		status, exists := hm.provisioning.GetDeviceStatus(session.DeviceID)
+		isBlocked := !exists || status == DeviceSuspended || status == DeviceRevoked
+
 		best := hm.selectBestLink(session.Location, sats)
-		if best == nil {
+		if best == nil || isBlocked {
 			session.LinkStatus = "outage"
 			session.DataDownMbps = 0
 			session.DataUpMbps = 0
