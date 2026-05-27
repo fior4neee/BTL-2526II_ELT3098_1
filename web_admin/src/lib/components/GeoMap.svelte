@@ -19,9 +19,13 @@
   export let initialCenter: [number, number] = [0, 0]; // [lon, lat]
   export let interactive: boolean = true;
   export let showSatellites: boolean = true;
+  export let showTrails: boolean = true;
   export let showLegend: boolean = true;
   export let showCounts: boolean = true;
   export let activeTab: 'all' | 'internet' | 'weather' = 'all';
+  export let satelliteMode: 'all' | 'connected' = 'all';
+  export let fitToVietnam: boolean = false;
+  export let wrapWorld: boolean = false;
 
   export let inViewCount: number = 0;
 
@@ -138,22 +142,99 @@
   const TRAIL_TTL = 2;
   let trailCache: { id: string; type: string; d: string }[] = [];
   let trailLastBuilt = -Infinity;
+  let trailBuildPending = false;
+  let baseReady = false;
+  let connectionsReady = false;
+
+  let staticBuildPending = false;
+  const PATH_CACHE = new Map<string, { land: string[]; grat: string }>();
 
   let simTime = Date.now() / 1000;
   let animTimer: ReturnType<typeof setInterval> | null = null;
   const REFRESH_MS = 100;
 
+  function getVietnamFeature() {
+    return WORLD_FEATURES.find((f: any) => {
+      const props = f?.properties ?? {};
+      return props['ISO3166-1-Alpha-3'] === 'VNM' || props['ISO3166-1-Alpha-2'] === 'VN' || props.name === 'Vietnam';
+    }) ?? null;
+  }
+
+  function fitProjectionToFeature(feature: any) {
+    if (!feature) return;
+    const base = d3Geo.geoEquirectangular().scale(1).translate([0, 0]);
+    const basePath = d3Geo.geoPath(base);
+    const b = basePath.bounds(feature);
+    const dx = b[1][0] - b[0][0];
+    const dy = b[1][1] - b[0][1];
+    if (!dx || !dy) return;
+    const padding = 0.92;
+    const s = padding / Math.max(dx / width, dy / height);
+    const t: [number, number] = [
+      (width - s * (b[1][0] + b[0][0])) / 2,
+      (height - s * (b[1][1] + b[0][1])) / 2,
+    ];
+    projection = d3Geo.geoEquirectangular().scale(s).translate(t);
+  }
+
   function initProjection() {
     projection = d3Geo.geoEquirectangular()
       .scale(width / (2 * Math.PI))
       .translate([width / 2, height / 2]);
+    if (fitToVietnam) {
+      fitProjectionToFeature(getVietnamFeature());
+    }
     pathGen = d3Geo.geoPath(projection);
+  }
+
+  function getPathCacheKey() {
+    if (!projection) return '';
+    const sc = projection.scale();
+    const [tx, ty] = projection.translate();
+    return `${width}x${height}:${fitToVietnam ? 'VN' : 'WORLD'}:${sc.toFixed(3)}:${tx.toFixed(2)},${ty.toFixed(2)}`;
   }
 
   function buildStaticPaths() {
     if (!pathGen) return;
-    graticulePath = pathGen(d3Geo.geoGraticule().step([1, 1])()) ?? '';
-    landPaths = WORLD_FEATURES.map(f => pathGen(f) ?? '').filter(Boolean);
+    const key = getPathCacheKey();
+    const cached = PATH_CACHE.get(key);
+    if (cached) {
+      landPaths = cached.land;
+      graticulePath = cached.grat;
+      baseReady = true;
+      return;
+    }
+    const grat = pathGen(d3Geo.geoGraticule().step([1, 1])()) ?? '';
+    const land = WORLD_FEATURES.map(f => pathGen(f) ?? '').filter(Boolean);
+    landPaths = land;
+    graticulePath = grat;
+    PATH_CACHE.set(key, { land, grat });
+    baseReady = true;
+  }
+
+  function scheduleTask(fn: () => void) {
+    const ric = (globalThis as any)?.requestIdleCallback as ((cb: () => void, opts?: { timeout?: number }) => number) | undefined;
+    if (typeof ric === 'function') {
+      ric(fn, { timeout: 1200 });
+      return;
+    }
+    const raf = (globalThis as any)?.requestAnimationFrame as ((cb: () => void) => number) | undefined;
+    if (typeof raf === 'function') {
+      raf(() => setTimeout(fn, 0));
+      return;
+    }
+    setTimeout(fn, 0);
+  }
+
+  function scheduleStaticBuild() {
+    if (staticBuildPending) return;
+    baseReady = false;
+    staticBuildPending = true;
+    const run = () => {
+      staticBuildPending = false;
+      buildStaticPaths();
+    };
+    scheduleTask(run);
   }
 
   function proj(lon: number, lat: number): [number, number] | null {
@@ -178,7 +259,7 @@
   }
 
   function rebuildTrails() {
-    if (!showSatellites) return;
+    if (!showSatellites || !showTrails) return;
     const defs = activeTab === 'all' ? ALL_DEFS : ALL_DEFS.filter(d => d.type === activeTab);
     trailCache = defs.map(def => ({
       id: def.id, type: def.type,
@@ -187,34 +268,94 @@
     trailLastBuilt = simTime;
   }
 
+  function scheduleTrailRebuild() {
+    if (!showSatellites || !showTrails || trailBuildPending) return;
+    trailBuildPending = true;
+    const run = () => {
+      trailBuildPending = false;
+      rebuildTrails();
+    };
+    scheduleTask(run);
+  }
+
+  let suppressWrap = false;
+
   function setupZoom() {
     if (!svgEl) return;
     const svg = d3Selection.select(svgEl);
-    
-    // Convert initial Center [lon, lat] into SVG translation
-    const centerPx = projection(initialCenter);
-    let xOffset = width / 2;
-    let yOffset = height / 2;
-    if (centerPx) {
-      xOffset -= centerPx[0] * initialZoom;
-      yOffset -= centerPx[1] * initialZoom;
+    let initialTransform = d3Zoom.zoomIdentity;
+
+    if (!fitToVietnam) {
+      // Convert initial Center [lon, lat] into SVG translation
+      const centerPx = projection(initialCenter);
+      let xOffset = width / 2;
+      let yOffset = height / 2;
+      if (centerPx) {
+        xOffset -= centerPx[0] * initialZoom;
+        yOffset -= centerPx[1] * initialZoom;
+      }
+      initialTransform = d3Zoom.zoomIdentity.translate(xOffset, yOffset).scale(initialZoom);
     }
 
-    const initialTransform = d3Zoom.zoomIdentity.translate(xOffset, yOffset).scale(initialZoom);
     currentTransform = initialTransform;
 
     const zoom = d3Zoom.zoom<SVGSVGElement, unknown>()
       .scaleExtent([0.5, 30])
       .on('zoom', (e: d3Zoom.D3ZoomEvent<SVGSVGElement, unknown>) => {
-        currentTransform = e.transform;
+        if (!wrapWorld || suppressWrap) {
+          currentTransform = e.transform;
+          return;
+        }
+        const k = e.transform.k;
+        const worldHeight = (Math.PI * projection.scale()) * k;
+        let y = e.transform.y;
+
+        const maxY = 0;
+        const minY = Math.min(0, height - worldHeight);
+        y = Math.max(minY, Math.min(maxY, y));
+
+        currentTransform = d3Zoom.zoomIdentity.translate(e.transform.x, y).scale(k);
       });
     
     if (interactive) {
+      suppressWrap = true;
       svg.call(zoom);
       svg.call(zoom.transform, initialTransform);
+      setTimeout(() => { suppressWrap = false; }, 0);
     } else {
       svg.on(".zoom", null); // disable zoom interactions
     }
+  }
+
+  let connectionLinks: { gwId: string; x1: number; y1: number; x2: number; y2: number; color: string }[] = [];
+  let connectedSatIds: Set<string> = new Set();
+
+  function rebuildConnections() {
+    if (!showSatellites) {
+      connectionLinks = [];
+      connectedSatIds = new Set();
+      connectionsReady = true;
+      return;
+    }
+    const links: { gwId: string; x1: number; y1: number; x2: number; y2: number; color: string }[] = [];
+    const ids = new Set<string>();
+
+    for (const gw of gwList) {
+      const nearest = nearestSat(gw.lat, gw.lng);
+      if (!nearest) continue;
+      const p1 = proj(gw.lng, gw.lat);
+      const p2 = proj(nearest.dLon, nearest.dLat);
+      if (!p1 || !p2) continue;
+      ids.add(nearest.id);
+      links.push({
+        gwId: gw.id ?? gw.name ?? 'gw',
+        x1: p1[0], y1: p1[1], x2: p2[0], y2: p2[1],
+        color: gwColor(gw.status),
+      });
+    }
+    connectionLinks = links;
+    connectedSatIds = new Set(ids);
+    connectionsReady = true;
   }
 
   function tick() {
@@ -228,8 +369,10 @@
         const [lon, lat] = satPos(def, simTime);
         return { ...anim, lon, lat, dLon: lon, dLat: lat };
       });
-      if (simTime - trailLastBuilt >= TRAIL_TTL) rebuildTrails();
+      if (simTime - trailLastBuilt >= TRAIL_TTL) scheduleTrailRebuild();
     }
+
+    rebuildConnections();
   }
 
   $: gwList = $gateways.length > 0
@@ -267,23 +410,40 @@
     return '#fb7185';
   }
 
-  $: visibleSats = activeTab === 'all' ? animSats : animSats.filter(s => s.type === activeTab);
+  $: visibleSats = (() => {
+    const base = activeTab === 'all' ? animSats : animSats.filter(s => s.type === activeTab);
+    return satelliteMode === 'connected'
+      ? base.filter(s => connectedSatIds.has(s.id))
+      : base;
+  })();
   const SAT_CLR: Record<string, string> = { internet: '#25d8f4', weather:  '#a78bfa' };
 
-  onMount(() => {
-    width  = svgEl.clientWidth  || window.innerWidth;
-    height = svgEl.clientHeight || window.innerHeight - 50;
+  function ensureSizedInit() {
+    const nextWidth = svgEl.clientWidth || window.innerWidth;
+    const nextHeight = svgEl.clientHeight || window.innerHeight - 50;
+    if (!nextWidth || !nextHeight) {
+      scheduleTask(ensureSizedInit);
+      return;
+    }
+    width = nextWidth;
+    height = nextHeight;
     initProjection();
-    buildStaticPaths();
     setupZoom();
+    scheduleStaticBuild();
+    rebuildConnections();
+  }
+
+  onMount(() => {
+    ensureSizedInit();
 
     const t0 = Date.now() / 1000;
     animSats = ALL_DEFS.map(def => {
       const [lon, lat] = satPos(def, t0);
       return { id: def.id, type: def.type, lon, lat, dLon: lon, dLat: lat };
     });
+    rebuildConnections();
     
-    if (showSatellites) rebuildTrails();
+    if (showSatellites && showTrails) scheduleTrailRebuild();
     animTimer = setInterval(tick, REFRESH_MS);
   });
 
@@ -291,7 +451,16 @@
     if (animTimer) clearInterval(animTimer);
   });
 
-  $: { activeTab; trailLastBuilt = -Infinity; }
+  $: { activeTab; trailLastBuilt = -Infinity; scheduleTrailRebuild(); }
+  $: {
+    fitToVietnam; wrapWorld; width; height; initialZoom; initialCenter;
+    if (svgEl) {
+      initProjection();
+      setupZoom();
+      scheduleStaticBuild();
+      rebuildConnections();
+    }
+  }
   
   // Compute visible bounds in projection space
   $: viewMinX = -currentTransform.x / currentTransform.k;
@@ -309,6 +478,9 @@
   $: weaCount = animSats.filter(s => s.type === 'weather' && isInView(s.dLon, s.dLat)).length;
   $: inViewCount = animSats.filter(s => isInView(s.dLon, s.dLat)).length;
   $: k = currentTransform.k;
+  $: worldWidthPx = projection ? 2 * Math.PI * projection.scale() : 0;
+  $: wrapOffsets = wrapWorld && worldWidthPx > 0 ? [-worldWidthPx, 0, worldWidthPx] : [0];
+  $: mapReady = baseReady && connectionsReady;
 </script>
 
 <div class="geomap-wrapper">
@@ -320,85 +492,87 @@
     style="background:{BG_COLOR};"
   >
     <g transform="translate({currentTransform.x},{currentTransform.y}) scale({currentTransform.k})">
-      
-      {#if graticulePath}
-        <path d={graticulePath} fill="none" stroke={GRAT_COLOR} stroke-opacity={GRAT_OPACITY} stroke-width={GRAT_SW / k} />
-      {/if}
-
-      {#each landPaths as d}
-        <path {d} fill={COUNTRY_FILL} stroke={COUNTRY_STROKE} stroke-width={COUNTRY_SW / k} stroke-linejoin="round" />
-      {/each}
-
-      {#if showSatellites}
-        {#each trailCache as tr (tr.id)}
-          {#if tr.d}
-            <path d={tr.d} fill="none" stroke={tr.type === 'internet' ? '#25d8f4' : '#a78bfa'}
-                  stroke-opacity={tr.type === 'internet' ? 0.22 : 0.18} stroke-width={0.7 / k} stroke-dasharray="{6 / k} {5 / k}" />
+      {#each wrapOffsets as dx}
+        <g transform="translate({dx},0)">
+          {#if graticulePath}
+            <path d={graticulePath} fill="none" stroke={GRAT_COLOR} stroke-opacity={GRAT_OPACITY} stroke-width={GRAT_SW / k} />
           {/if}
-        {/each}
-      {/if}
 
-      {#each gwList as gw}
-        {@const nearest = nearestSat(gw.lat, gw.lng)}
-        {#if nearest}
-          {@const p1 = proj(gw.lng, gw.lat)}
-          {@const p2 = proj(nearest.dLon, nearest.dLat)}
-          {#if p1 && p2}
-            <line x1={p1[0]} y1={p1[1]} x2={p2[0]} y2={p2[1]}
-                  stroke={gwColor(gw.status)} stroke-opacity="0.55" stroke-width={1.1 / k} stroke-dasharray="{6 / k} {4 / k}">
+          {#each landPaths as d}
+            <path {d} fill={COUNTRY_FILL} stroke={COUNTRY_STROKE} stroke-width={COUNTRY_SW / k} stroke-linejoin="round" />
+          {/each}
+
+          {#if showSatellites && showTrails}
+            {#each trailCache as tr (tr.id)}
+              {#if tr.d}
+                <path d={tr.d} fill="none" stroke={tr.type === 'internet' ? '#25d8f4' : '#a78bfa'}
+                      stroke-opacity={tr.type === 'internet' ? 0.22 : 0.18} stroke-width={0.7 / k} stroke-dasharray="{6 / k} {5 / k}" />
+              {/if}
+            {/each}
+          {/if}
+
+          {#each connectionLinks as link (link.gwId)}
+            <line x1={link.x1} y1={link.y1} x2={link.x2} y2={link.y2}
+                  stroke={link.color} stroke-opacity="0.55" stroke-width={1.1 / k} stroke-dasharray="{6 / k} {4 / k}">
               <animate attributeName="stroke-dashoffset" values="0;{-20 / k}" dur="1.4s" repeatCount="indefinite" />
             </line>
-          {/if}
-        {/if}
-      {/each}
+          {/each}
 
-      {#if showSatellites}
-        {#each visibleSats as sat (sat.id)}
-          {@const pt = proj(sat.dLon, sat.dLat)}
-          {#if pt}
-            {@const c = SAT_CLR[sat.type]}
-            {@const r  = 3 / k}
-            {@const cr = 6 / k}
-            {@const rg = 13 / k}
-            <g>
-              <circle cx={pt[0]} cy={pt[1]} r={rg} fill="none" stroke={c} stroke-opacity="0.10" stroke-width={0.7 / k} />
-              <line x1={pt[0]-cr} y1={pt[1]} x2={pt[0]+cr} y2={pt[1]} stroke={c} stroke-opacity="0.85" stroke-width={1.3 / k} />
-              <line x1={pt[0]} y1={pt[1]-cr} x2={pt[0]} y2={pt[1]+cr} stroke={c} stroke-opacity="0.85" stroke-width={1.3 / k} />
-              <circle cx={pt[0]} cy={pt[1]} r={r} fill={c} fill-opacity="0.95" />
-              <circle cx={pt[0]} cy={pt[1]} r={r * 2} fill="none" stroke={c} stroke-opacity="0.45" stroke-width={0.8 / k}>
-                <animate attributeName="r" values="{r*2};{r*5};{r*2}" dur="2.8s" repeatCount="indefinite"/>
-                <animate attributeName="stroke-opacity" values="0.45;0;0.45" dur="2.8s" repeatCount="indefinite"/>
-              </circle>
-              {#if k > 1.8}
-                <text x={pt[0] + r + 2/k} y={pt[1] - r - 1/k} font-family="JetBrains Mono,monospace" font-size={8 / k} fill={c} fill-opacity="0.75">
-                  {sat.id.replace(/^[IW]-VNU-LEO-/, '')}
-                </text>
+          {#if showSatellites}
+            {#each visibleSats as sat (sat.id)}
+              {@const pt = proj(sat.dLon, sat.dLat)}
+              {#if pt}
+                {@const c = SAT_CLR[sat.type]}
+                {@const r  = 3 / k}
+                {@const cr = 6 / k}
+                {@const rg = 13 / k}
+                <g>
+                  <circle cx={pt[0]} cy={pt[1]} r={rg} fill="none" stroke={c} stroke-opacity="0.10" stroke-width={0.7 / k} />
+                  <line x1={pt[0]-cr} y1={pt[1]} x2={pt[0]+cr} y2={pt[1]} stroke={c} stroke-opacity="0.85" stroke-width={1.3 / k} />
+                  <line x1={pt[0]} y1={pt[1]-cr} x2={pt[0]} y2={pt[1]+cr} stroke={c} stroke-opacity="0.85" stroke-width={1.3 / k} />
+                  <circle cx={pt[0]} cy={pt[1]} r={r} fill={c} fill-opacity="0.95" />
+                  <circle cx={pt[0]} cy={pt[1]} r={r * 2} fill="none" stroke={c} stroke-opacity="0.45" stroke-width={0.8 / k}>
+                    <animate attributeName="r" values="{r*2};{r*5};{r*2}" dur="2.8s" repeatCount="indefinite"/>
+                    <animate attributeName="stroke-opacity" values="0.45;0;0.45" dur="2.8s" repeatCount="indefinite"/>
+                  </circle>
+                  {#if k > 1.8}
+                    <text x={pt[0] + r + 2/k} y={pt[1] - r - 1/k} font-family="JetBrains Mono,monospace" font-size={8 / k} fill={c} fill-opacity="0.75">
+                      {sat.id.replace(/^[IW]-VNU-LEO-/, '')}
+                    </text>
+                  {/if}
+                </g>
               {/if}
-            </g>
+            {/each}
           {/if}
-        {/each}
-      {/if}
 
-      {#each gwList as gw}
-        {@const pt = proj(gw.lng, gw.lat)}
-        {#if pt}
-          {@const c = gwColor(gw.status)}
-          {@const dr = 5 / k}
-          {@const rg = 18 / k}
-          <circle cx={pt[0]} cy={pt[1]} r={rg} fill={c} fill-opacity="0.05" stroke={c} stroke-opacity="0.18" stroke-width={0.9 / k} stroke-dasharray="{4/k} {3/k}" />
-          <circle cx={pt[0]} cy={pt[1]} r={dr} fill={c} fill-opacity="0.92" />
-          <circle cx={pt[0]} cy={pt[1]} r={dr*2} fill="none" stroke={c} stroke-opacity="0.5" stroke-width={1.4 / k}>
-            <animate attributeName="r" values="{dr*2};{dr*4};{dr*2}" dur="3s" repeatCount="indefinite"/>
-            <animate attributeName="stroke-opacity" values="0.5;0;0.5" dur="3s" repeatCount="indefinite"/>
-          </circle>
-          <text x={pt[0] + dr + 2/k} y={pt[1] + dr * 0.4} font-family="JetBrains Mono,monospace" font-size={9 / k} fill={c} fill-opacity="0.92">
-            {gw.name ?? gw.id}
-          </text>
-        {/if}
+          {#each gwList as gw}
+            {@const pt = proj(gw.lng, gw.lat)}
+            {#if pt}
+              {@const c = gwColor(gw.status)}
+              {@const dr = 5 / k}
+              {@const rg = 18 / k}
+              <circle cx={pt[0]} cy={pt[1]} r={rg} fill={c} fill-opacity="0.05" stroke={c} stroke-opacity="0.18" stroke-width={0.9 / k} stroke-dasharray="{4/k} {3/k}" />
+              <circle cx={pt[0]} cy={pt[1]} r={dr} fill={c} fill-opacity="0.92" />
+              <circle cx={pt[0]} cy={pt[1]} r={dr*2} fill="none" stroke={c} stroke-opacity="0.5" stroke-width={1.4 / k}>
+                <animate attributeName="r" values="{dr*2};{dr*4};{dr*2}" dur="3s" repeatCount="indefinite"/>
+                <animate attributeName="stroke-opacity" values="0.5;0;0.5" dur="3s" repeatCount="indefinite"/>
+              </circle>
+              <text x={pt[0] + dr + 2/k} y={pt[1] + dr * 0.4} font-family="JetBrains Mono,monospace" font-size={9 / k} fill={c} fill-opacity="0.92">
+                {gw.name ?? gw.id}
+              </text>
+            {/if}
+          {/each}
+        </g>
       {/each}
-
     </g>
   </svg>
+
+  {#if !mapReady}
+    <div class="wm-loading">
+      <div class="wm-loading-text">Map loading...</div>
+      <div class="wm-loading-ring"></div>
+    </div>
+  {/if}
 
   {#if showCounts}
     <div class="wm-hud wm-hud-tl">
@@ -445,6 +619,36 @@
   }
   .wm-svg.interactive { cursor: grab; }
   .wm-svg.interactive:active { cursor: grabbing; }
+
+  .wm-loading {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    background: #060d14;
+  }
+  .wm-loading-text {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    color: #2f5666;
+    text-transform: uppercase;
+  }
+  .wm-loading-ring {
+    width: 28px;
+    height: 28px;
+    border-radius: 999px;
+    border: 2px solid rgba(34, 211, 238, 0.15);
+    border-top-color: rgba(34, 211, 238, 0.85);
+    animation: wm-spin 1s linear infinite;
+  }
+  @keyframes wm-spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
 
   /* HUDs */
   .wm-hud {

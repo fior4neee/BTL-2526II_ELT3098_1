@@ -11,9 +11,7 @@
   function closeConstellation() { showConstellation = false; }
 </script>
 
-{#if showConstellation}
-  <ConstellationModal onClose={closeConstellation} />
-{/if}
+<ConstellationModal open={showConstellation} onClose={closeConstellation} />
 
 <div class="chart-container flex flex-col h-full">
   <div class="flex items-center justify-between mb-3 flex-shrink-0">
@@ -36,10 +34,13 @@
     <!-- SVG map -->
     <div class="geomap-holder" style="filter: {isHovered ? 'blur(3px) brightness(0.5)' : 'none'};">
       <GeoMap
-        initialZoom={4.5}
+        initialZoom={1}
         initialCenter={[106.5, 16.5]}
+        fitToVietnam={true}
         interactive={false}
-        showSatellites={false}
+        showSatellites={true}
+        showTrails={false}
+        satelliteMode="connected"
         showLegend={false}
         showCounts={false}
         activeTab="all"

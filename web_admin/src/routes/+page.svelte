@@ -1,8 +1,7 @@
 <script lang="ts">
   import Topbar from '$lib/components/Topbar.svelte';
   import ConstellationMap from '$lib/components/ConstellationMap.svelte';
-  import WorldMapModal from '$lib/components/WorldMapModal.svelte';
-  import { gateways, handovers, lastError, lastUpdated, metrics, securityAlerts, worldMapOpen } from '$lib/stores';
+  import { gateways, handovers, lastError, lastUpdated, metrics, securityAlerts } from '$lib/stores';
   import type { Gateway } from '$lib/types';
 
   function statusClass(status: Gateway['status']) {
@@ -25,6 +24,18 @@
   function formatPct(value: number) {
     return `${value.toFixed(2)}%`;
   }
+
+  const GATEWAY_ORDER = ['HAN', 'HANOI', 'GW-HAN-01', 'DAN', 'DANANG', 'GW-DAN-01', 'HCM', 'HCMC', 'GW-HCM-01'];
+  function gatewayRank(gw: Gateway) {
+    const key = `${gw.name ?? ''} ${gw.id ?? ''}`.toUpperCase();
+    if (key.includes('HAN')) return 0;
+    if (key.includes('DAN')) return 1;
+    if (key.includes('HCM')) return 2;
+    const idx = GATEWAY_ORDER.findIndex((t) => key.includes(t));
+    return idx >= 0 ? idx : 99;
+  }
+
+  $: orderedGateways = [...$gateways].sort((a, b) => gatewayRank(a) - gatewayRank(b));
 
   $: criticalAlerts = [
     ...$securityAlerts.slice(0, 3).map((alert) => ({
@@ -52,11 +63,6 @@
       })),
   ].slice(0, 5);
 </script>
-
-<!-- WorldMapModal renders here — at page root, outside ALL layout stacking contexts -->
-{#if $worldMapOpen}
-  <WorldMapModal onClose={() => worldMapOpen.set(false)} />
-{/if}
 
 <Topbar title="OVERVIEW" subtitle="VNU-LEO ISP control center" />
 
@@ -99,7 +105,7 @@
         {/if}
       </div>
 
-      {#each $gateways as gw (gw.id)}
+      {#each orderedGateways as gw (gw.id)}
         <article class="stat-card animate-fade-in">
           <div class="flex items-center justify-between gap-3 mb-3">
             <div class="flex items-center gap-3 min-w-0">

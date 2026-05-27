@@ -1,14 +1,16 @@
 <script lang="ts">
-  import { worldMapOpen } from '$lib/stores';
   import GeoMap from './GeoMap.svelte';
 
   export let onClose: () => void;
+  export let open: boolean = false;
   
   let satInView = 0;
 
   function handleKeydown(e: KeyboardEvent) {
+    if (!open) return;
     if (e.key === 'Escape') onClose();
   }
+
 </script>
 
 <svelte:window on:keydown={handleKeydown} />
@@ -16,9 +18,11 @@
 <!-- Full-screen constellation modal (Vietnam corridor — fixed, z-40) -->
 <div
   class="fixed inset-0 z-40 bg-space-950 flex flex-col"
+  class:constellation-hidden={!open}
   role="dialog"
   aria-label="Constellation Map — Vietnam"
   aria-modal="true"
+  aria-hidden={!open}
 >
   <!-- Header bar with two buttons -->
   <div class="flex items-center justify-between px-5 py-3 border-b border-slate-700/40 flex-shrink-0">
@@ -32,26 +36,8 @@
       </div>
     </div>
 
-    <!-- Two top-right buttons -->
+    <!-- Close button -->
     <div class="flex items-center gap-2">
-      <!-- Expand → open World Map (rendered at page level via store) -->
-      <button
-        type="button"
-        id="constellation-expand"
-        on:click={() => worldMapOpen.set(true)}
-        class="map-icon-btn map-icon-btn--cyan"
-        aria-label="Expand to World Map"
-        title="Show full world constellation map"
-      >
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-          <polyline points="10,2 14,2 14,6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-          <line x1="8.5" y1="7.5" x2="14" y2="2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-          <polyline points="6,14 2,14 2,10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-          <line x1="7.5" y1="8.5" x2="2" y2="14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-        </svg>
-      </button>
-
-      <!-- Red X — close constellation, back to Overview -->
       <button
         type="button"
         id="constellation-close"
@@ -75,6 +61,7 @@
       initialCenter={[106.5, 16.5]}
       interactive={true}
       showSatellites={true}
+      wrapWorld={true}
       showLegend={false}
       showCounts={false}
       activeTab="all"
@@ -84,6 +71,9 @@
 </div>
 
 <style>
+  .constellation-hidden {
+    display: none;
+  }
   .map-icon-btn {
     display: flex;
     align-items: center;
@@ -98,16 +88,6 @@
     padding: 0;
   }
   .map-icon-btn svg { display: block; pointer-events: none; }
-  
-  .map-icon-btn--cyan {
-    border-color: rgba(34,211,238,0.25);
-    color: rgba(34,211,238,0.65);
-  }
-  .map-icon-btn--cyan:hover {
-    color: #22d3ee;
-    background: rgba(34,211,238,0.1);
-    border-color: rgba(34,211,238,0.4);
-  }
   
   .map-icon-btn--rose {
     border-color: rgba(251,113,133,0.15);
