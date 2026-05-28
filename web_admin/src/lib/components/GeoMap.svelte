@@ -53,23 +53,6 @@
   const N_INT = (15.24308387 * 2 * Math.PI) / 86400;
   const N_WEA = (13.71870588 * 2 * Math.PI) / 86400;
 
-  const INT_PARAMS: [string, number, number][] = [
-    ['0101',  0,   0], ['0102',  0,  90], ['0103',  0, 180], ['0104',  0, 270],
-    ['0201', 60,  15], ['0202', 60, 105], ['0203', 60, 195], ['0204', 60, 285],
-    ['0301',120,  30], ['0302',120, 120], ['0303',120, 210], ['0304',120, 300],
-    ['0401',180,  45], ['0402',180, 135], ['0403',180, 225], ['0404',180, 315],
-    ['0501',240,  60], ['0502',240, 150], ['0503',240, 240], ['0504',240, 330],
-    ['0601',300,  75], ['0602',300, 165], ['0603',300, 255], ['0604',300, 345],
-  ];
-  const WEA_PARAMS: [string, number, number][] = [
-    ['0101',  0,   0], ['0102',  0, 120], ['0103',  0, 240],
-    ['0201', 60,  20], ['0202', 60, 140], ['0203', 60, 260],
-    ['0301',120,  40], ['0302',120, 160], ['0303',120, 280],
-    ['0401',180,  60], ['0402',180, 180], ['0403',180, 300],
-    ['0501',240,  80], ['0502',240, 200], ['0503',240, 320],
-    ['0601',300, 100], ['0602',300, 220], ['0603',300, 340],
-  ];
-
   const INC = 53 * D2R;
 
   function makeDefs(params: [string, number, number][], n: number, type: 'internet' | 'weather'): SatDef[] {
@@ -79,9 +62,28 @@
     }));
   }
 
+  function generateWalker(N: number, P: number, F: number, type: 'internet' | 'weather') {
+    const params: [string, number, number][] = [];
+    const S = N / P;
+    const raanStep = 360 / P;
+    const m0Step = 360 / S;
+    const phaseShift = (F * 360) / N;
+    
+    let count = 1;
+    for (let p = 0; p < P; p++) {
+      const raan = p * raanStep;
+      for (let s = 0; s < S; s++) {
+        const m0 = (s * m0Step + p * phaseShift) % 360;
+        const suffix = count.toString().padStart(3, '0');
+        params.push([suffix, raan, m0]);
+        count++;
+      }
+    }
+    return makeDefs(params, type === 'internet' ? N_INT : N_WEA, type);
+  }
+
   const ALL_DEFS: SatDef[] = [
-    ...makeDefs(INT_PARAMS, N_INT, 'internet'),
-    ...makeDefs(WEA_PARAMS, N_WEA, 'weather'),
+    ...generateWalker(306, 17, 0, 'internet'),
   ];
 
   // ── SGP4-lite ─────────────────────────────────────────────────────────────
@@ -410,6 +412,14 @@
     return '#fb7185';
   }
 
+  function isSatVisible(pt: [number, number], t: any, dx: number, w: number, h: number) {
+    if (!pt) return false;
+    const k = t.k;
+    const vx = (pt[0] + dx) * k + t.x;
+    const vy = pt[1] * k + t.y;
+    return vx >= -100 && vx <= w + 100 && vy >= -100 && vy <= h + 100;
+  }
+
   $: visibleSats = (() => {
     const base = activeTab === 'all' ? animSats : animSats.filter(s => s.type === activeTab);
     return satelliteMode === 'connected'
@@ -521,7 +531,8 @@
           {#if showSatellites}
             {#each visibleSats as sat (sat.id)}
               {@const pt = proj(sat.dLon, sat.dLat)}
-              {#if pt}
+              {#if pt && isSatVisible(pt, currentTransform, dx, width, height)}
+                {@const k = currentTransform.k}
                 {@const c = SAT_CLR[sat.type]}
                 {@const r  = 3 / k}
                 {@const cr = 6 / k}
@@ -580,10 +591,6 @@
         <span class="wm-dot" style="background:#25d8f4;"></span>
         {intCount} INTERNET
       </div>
-      <div class="wm-badge" style="color:#a78bfa;border-color:#a78bfa40;">
-        <span class="wm-dot" style="background:#a78bfa;"></span>
-        {weaCount} WEATHER
-      </div>
       <div class="wm-badge" style="color:#34d399;border-color:#34d39940;">
         {gwList.filter(g => g.status === 'alive').length}/{gwList.length} GW ONLINE
       </div>
@@ -594,7 +601,6 @@
     <div class="wm-hud wm-hud-br">
       <div class="wm-leg-title">LEGEND</div>
       <div class="wm-leg-row"><span class="wm-leg-line" style="background:#25d8f4;"></span>Internet satellite</div>
-      <div class="wm-leg-row"><span class="wm-leg-line" style="background:#a78bfa;"></span>Weather satellite</div>
       <div class="wm-leg-row"><span class="wm-leg-dash" style="border-color:#25d8f4;"></span>Orbital trail</div>
       <div class="wm-leg-row"><span class="wm-leg-dot" style="background:#34d399;"></span>Gateway alive</div>
       <div class="wm-leg-row"><span class="wm-leg-dot" style="background:#fbbf24;"></span>Gateway degraded</div>

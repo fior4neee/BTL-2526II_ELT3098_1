@@ -2,5 +2,5 @@
     "app_port": "8081",
     "gateway_data_path": "data/gateways.json",
     "settings_path": "data/system_settings.json",
-    "tle_path": "../outputs/internet/vnu_leo.tle"
+    "tle_path": "../orbit_calc/combined_416.tle"
 }

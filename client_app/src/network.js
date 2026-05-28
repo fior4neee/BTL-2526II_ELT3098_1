@@ -344,24 +344,6 @@ forceBreach.subscribe(() => {
 });
 
 // --- Shim to match Web Admin's visual satellite connections ---
-const INT_PARAMS = [
-  ['0101',  0,   0], ['0102',  0,  90], ['0103',  0, 180], ['0104',  0, 270],
-  ['0201', 60,  15], ['0202', 60, 105], ['0203', 60, 195], ['0204', 60, 285],
-  ['0301',120,  30], ['0302',120, 120], ['0303',120, 210], ['0304',120, 300],
-  ['0401',180,  45], ['0402',180, 135], ['0403',180, 225], ['0404',180, 315],
-  ['0501',240,  60], ['0502',240, 150], ['0503',240, 240], ['0504',240, 330],
-  ['0601',300,  75], ['0602',300, 165], ['0603',300, 255], ['0604',300, 345],
-];
-
-const WEA_PARAMS = [
-  ['0101',  0,   0], ['0102',  0, 120], ['0103',  0, 240],
-  ['0201', 60,  20], ['0202', 60, 140], ['0203', 60, 260],
-  ['0301',120,  40], ['0302',120, 160], ['0303',120, 280],
-  ['0401',180,  60], ['0402',180, 180], ['0403',180, 300],
-  ['0501',240,  80], ['0502',240, 200], ['0503',240, 320],
-  ['0601',300, 100], ['0602',300, 220], ['0603',300, 340],
-];
-
 function calculateWebAdminSat(gwId) {
   const STATIC_GW = {
     'GW-HAN-01': { lat: 21.028, lng: 105.854 },
@@ -373,48 +355,57 @@ function calculateWebAdminSat(gwId) {
   
   const t = Date.now() / 1000;
   const N_INT = (15.24308387 * 2 * Math.PI) / 86400;
-  const N_WEA = (13.71870588 * 2 * Math.PI) / 86400;
   const EARTH_ROT = 7.2921150e-5;
   const INC = 53 * Math.PI / 180;
   const D2R = Math.PI / 180;
   
   let best = null, bestEl = -Infinity;
   
-  // Helper to test a satellite list
-  const testSats = (params, nRate, altKm, prefix) => {
-    for (const p of params) {
-      const raan = p[1] * D2R;
-      const m0 = p[2] * D2R;
-      const M = m0 + nRate * t;
-      const xOrb = Math.cos(M), yOrb = Math.sin(M);
-      const x3 = xOrb, y3 = yOrb * Math.cos(INC), z3 = yOrb * Math.sin(INC);
-      const xEci = x3 * Math.cos(raan) - y3 * Math.sin(raan);
-      const yEci = x3 * Math.sin(raan) + y3 * Math.cos(raan);
-      const theta = EARTH_ROT * t;
-      const xEcef =  xEci * Math.cos(theta) + yEci * Math.sin(theta);
-      const yEcef = -xEci * Math.sin(theta) + yEci * Math.cos(theta);
-      let lon = Math.atan2(yEcef, xEcef) * (180 / Math.PI);
-      lon = ((lon + 540) % 360) - 180;
-      const lat = Math.asin(Math.max(-1, Math.min(1, z3))) * (180 / Math.PI);
-      
-      const cosEta = Math.sin(gw.lat*D2R) * Math.sin(lat*D2R)
-                   + Math.cos(gw.lat*D2R) * Math.cos(lat*D2R)
-                   * Math.cos((lon - gw.lng)*D2R);
-      const c = Math.max(-1, Math.min(1, cosEta));
-      const a = 6371 + altKm;
-      const dist = Math.sqrt(a*a - 2*a*6371*c + 6371*6371);
-      if (dist < 1e-6) {
-         bestEl = 90; best = `${prefix}${p[0]}`;
-         continue;
+  const testSatsWalker = (N, P, F, nRate, altKm, prefix) => {
+    const S = N / P;
+    const raanStep = 360 / P;
+    const m0Step = 360 / S;
+    const phaseShift = (F * 360) / N;
+    let count = 1;
+
+    for (let p = 0; p < P; p++) {
+      const raan = p * raanStep * D2R;
+      for (let s = 0; s < S; s++) {
+        const m0Deg = (s * m0Step + p * phaseShift) % 360;
+        const m0 = m0Deg * D2R;
+        const M = m0 + nRate * t;
+        const xOrb = Math.cos(M), yOrb = Math.sin(M);
+        const x3 = xOrb, y3 = yOrb * Math.cos(INC), z3 = yOrb * Math.sin(INC);
+        const xEci = x3 * Math.cos(raan) - y3 * Math.sin(raan);
+        const yEci = x3 * Math.sin(raan) + y3 * Math.cos(raan);
+        const theta = EARTH_ROT * t;
+        const xEcef =  xEci * Math.cos(theta) + yEci * Math.sin(theta);
+        const yEcef = -xEci * Math.sin(theta) + yEci * Math.cos(theta);
+        let lon = Math.atan2(yEcef, xEcef) * (180 / Math.PI);
+        lon = ((lon + 540) % 360) - 180;
+        const lat = Math.asin(Math.max(-1, Math.min(1, z3))) * (180 / Math.PI);
+        
+        const cosEta = Math.sin(gw.lat*D2R) * Math.sin(lat*D2R)
+                     + Math.cos(gw.lat*D2R) * Math.cos(lat*D2R)
+                     * Math.cos((lon - gw.lng)*D2R);
+        const c = Math.max(-1, Math.min(1, cosEta));
+        const a = 6371 + altKm;
+        const dist = Math.sqrt(a*a - 2*a*6371*c + 6371*6371);
+        const suffix = count.toString().padStart(3, '0');
+        count++;
+
+        if (dist < 1e-6) {
+           bestEl = 90; best = `${prefix}${suffix}`;
+           continue;
+        }
+        const sinEl = (a * c - 6371) / dist;
+        const el = Math.asin(Math.max(-1, Math.min(1, sinEl))) * (180 / Math.PI);
+        if (el >= 15 && el > bestEl) { bestEl = el; best = `${prefix}${suffix}`; }
       }
-      const sinEl = (a * c - 6371) / dist;
-      const el = Math.asin(Math.max(-1, Math.min(1, sinEl))) * (180 / Math.PI);
-      if (el >= 15 && el > bestEl) { bestEl = el; best = `${prefix}${p[0]}`; }
     }
   };
 
-  testSats(INT_PARAMS, N_INT, 500, 'I-VNU-LEO-');
-  testSats(WEA_PARAMS, N_WEA, 1000, 'W-VNU-LEO-');
+  testSatsWalker(306, 17, 0, N_INT, 500, 'I-VNU-LEO-');
   
   return best;
 }
