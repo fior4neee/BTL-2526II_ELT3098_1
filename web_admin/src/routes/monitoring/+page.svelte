@@ -143,15 +143,16 @@
   }
 
   $: trafficChart = buildChart('Traffic Volume (Gbps)', $series.trafficGbps, '#22d3ee', 'rgba(34,211,238,0.15)', 'line');
-  $: handoverChart = buildChart('Handover Frequency', $series.handoverCount, '#fbbf24', 'rgba(251,191,36,0.15)', 'bar');
-  $: sessionChart = buildChart('Active Sessions', $series.sessionCount, '#34d399', 'rgba(52,211,153,0.15)', 'line');
+  $: handoverChart = buildChart('Handover Frequency', $series.handoverCount, '#fbbf24', 'rgba(251,191,36,0.15)', 'bar', true);
+  $: sessionChart = buildChart('Active Sessions', $series.sessionCount, '#34d399', 'rgba(52,211,153,0.15)', 'line', true);
 
   function buildChart(
     label: string,
     points: { ts: Date; value: number }[],
     border: string,
     fill: string,
-    type: 'line' | 'bar'
+    type: 'line' | 'bar',
+    forceIntY = false
   ): ChartConfiguration {
     return {
       type,
@@ -181,7 +182,11 @@
             grid: { color: 'rgba(34,211,238,0.04)' },
           },
           y: {
-            ticks: { color: '#64748b' },
+            beginAtZero: true,
+            ticks: {
+              color: '#64748b',
+              ...(forceIntY ? { stepSize: 1, precision: 0 } : {})
+            },
             grid: { color: 'rgba(34,211,238,0.04)' },
           },
         },
