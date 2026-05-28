@@ -1,0 +1,6 @@
+{
+    "app_port": "8081",
+    "gateway_data_path": "data/gateways.json",
+    "settings_path": "data/system_settings.json",
+    "tle_path": "../orbit_calc/outputs/unified/constellation.tle"
+}

@@ -204,6 +204,9 @@ secrets.yaml
 config.prod.env
 credentials.json
 
+# Generated / executed notebooks (source stays clean; executed is regenerated on demand)
+orbit_calc/simulation_executed.ipynb
+
 # Build artifacts
 *.o
 *.a
