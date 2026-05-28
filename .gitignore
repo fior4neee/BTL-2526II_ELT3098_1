@@ -2,7 +2,6 @@
 __pycache__/
 *.py[cod]
 *$py.class
-
 # C extensions
 *.so
 
@@ -58,6 +57,9 @@ coverage.xml
 local_settings.py
 db.sqlite3
 db.sqlite3-journal
+
+# Jupyter
+.ipynb_checkpoints/
 
 # Flask stuff:
 instance/
@@ -219,6 +221,9 @@ orbit_calc/simulation_executed.ipynb
 /output/
 /bin/
 /obj/
+/outputs/
+orbit_calc/outputs/
+
 
 # Coverage and reports
 coverage/
@@ -246,3 +251,5 @@ logs/
 .tmp/
 tmp/
 *.tmp
+
+
