@@ -1,0 +1,124 @@
+[
+    {
+        "device_id": "router-vnu-leo-001",
+        "mac": "00:1B:44:11:3A:B7",
+        "hw_id": "SEC-ENC-HANOI01",
+        "model": "VNU-LEO Fixed Terminal v2",
+        "owner": "Hanoi Office",
+        "status": "active",
+        "provisioning_token": "token001",
+        "registered_at": "2026-01-15T08:00:00.000Z"
+    },
+    {
+        "device_id": "router-vnu-leo-002",
+        "mac": "3C:A8:2A:FF:11:0C",
+        "hw_id": "SEC-ENC-HANOI02",
+        "model": "VNU-LEO Fixed Terminal v2",
+        "owner": "Hanoi Branch",
+        "status": "active",
+        "provisioning_token": "token002",
+        "registered_at": "2026-02-10T09:30:00.000Z"
+    },
+    {
+        "device_id": "router-vnu-leo-003",
+        "mac": "12:34:56:78:9A:BC",
+        "hw_id": "SEC-ENC-DANANG01",
+        "model": "VNU-LEO Fixed Terminal v2",
+        "owner": "Danang Hub",
+        "status": "active",
+        "provisioning_token": "token003",
+        "registered_at": "2026-03-05T10:15:00.000Z"
+    },
+    {
+        "device_id": "router-vnu-leo-004",
+        "mac": "54:E1:AD:99:3B:1F",
+        "hw_id": "SEC-ENC-HP01",
+        "model": "VNU-LEO Mobile Dish",
+        "owner": "Haiphong Logistics",
+        "status": "active",
+        "provisioning_token": "token004",
+        "registered_at": "2026-04-12T11:45:00.000Z"
+    },
+    {
+        "device_id": "router-vnu-leo-005",
+        "mac": "F8:1A:67:B2:EE:90",
+        "hw_id": "SEC-ENC-HCMC01",
+        "model": "VNU-LEO Fixed Terminal v2",
+        "owner": "HCMC Headquarters",
+        "status": "active",
+        "provisioning_token": "token005",
+        "registered_at": "2026-05-01T14:20:00.000Z"
+    },
+    {
+        "device_id": "router-vnu-leo-006",
+        "mac": "00:22:44:66:88:AA",
+        "hw_id": "SEC-ENC-NHATRANG01",
+        "model": "VNU-LEO Fixed Terminal v2",
+        "owner": "Nha Trang Station",
+        "status": "active",
+        "provisioning_token": "token006",
+        "registered_at": "2026-05-15T16:00:00.000Z"
+    },
+    {
+        "device_id": "router-vnu-leo-007",
+        "mac": "AA:BB:CC:DD:EE:FF",
+        "hw_id": "SEC-ENC-334455A",
+        "model": "VNU-LEO Mobile App",
+        "owner": "Liam's Phone",
+        "status": "active",
+        "provisioning_token": "token007",
+        "registered_at": "2026-05-20T10:15:30.123Z"
+    },
+    {
+        "device_id": "router-vnu-leo-008",
+        "mac": "98:76:54:32:10:FE",
+        "hw_id": "SEC-ENC-998811B",
+        "model": "VNU-LEO Mobile Dish",
+        "owner": "Test Router",
+        "status": "registered",
+        "provisioning_token": "token008",
+        "registered_at": "2026-05-21T08:05:12.456Z"
+    },
+    {
+        "device_id": "router-vnu-leo-009",
+        "mac": "FE:DC:BA:98:76:54",
+        "hw_id": "SEC-ENC-445566C",
+        "model": "VNU-LEO Mobile Dish",
+        "owner": "Stolen Device 009",
+        "status": "revoked",
+        "provisioning_token": "token009",
+        "registered_at": "2026-05-10T14:20:05.111Z",
+        "revoked_at": "2026-05-22T09:10:15.333Z"
+    },
+    {
+        "device_id": "router-vnu-leo-010",
+        "mac": "1A:2B:3C:4D:5E:6F",
+        "hw_id": "SEC-ENC-778899D",
+        "model": "VNU-LEO Fixed Terminal v2",
+        "owner": "Unpaid Bill 010",
+        "status": "active",
+        "provisioning_token": "token010",
+        "registered_at": "2026-05-21T16:45:00.000Z"
+    },
+    {
+        "device_id": "router-vnu-leo-011",
+        "mac": "00:AA:BB:CC:DD:EE",
+        "hw_id": "SEC-ENC-112244E",
+        "model": "VNU-LEO Mobile App",
+        "owner": "Unknown Device 011",
+        "status": "active",
+        "provisioning_token": "token011",
+        "registered_at": "2026-05-21T18:30:45.987Z"
+    },
+    {
+        "device_id": "router-vnu-leo-014",
+        "mac": "01:03:05:07:09:0B",
+        "hw_id": "SEC-ENC-221100H",
+        "model": "VNU-LEO Fixed Terminal v2",
+        "owner": "Compromised Router 014",
+        "status": "revoked",
+        "provisioning_token": "token014",
+        "registered_at": "2026-05-15T09:00:00.555Z",
+        "revoked_at": "2026-05-19T10:00:00.666Z"
+    }
+]

@@ -1,0 +1,9 @@
+{
+  "gateway_data_path": "data/gateways.json",
+  "earth_radius_km": 6371.0,
+  "elevation_hysteresis": 2.0,
+  "default_satellite_id": "SAT-LEO-001",
+  "telemetry_buffer_size": 1000,
+  "isp_secret_salt": "VNU-LEO-SUPER-SECRET-2026",
+  "audit_log_path": "data/audit.log"
+}
